@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# LaTeX 编译中间产物（confirm-doc-agent 用 tectonic/xelatex 生成）
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.xdv
+
+# Claude Code 本地配置
+.claude/settings.local.json

@@ -1,0 +1,117 @@
+% !TEX program = xelatex
+% ============================================================
+% 功能确认说明模板 — PM-workflow
+% 编译：tectonic <文件名>.tex   或   xelatex <文件名>.tex（跑两遍出目录）
+% 说明：每次填「填写区」四个命令即可，其余结构不要动
+% ============================================================
+\documentclass[12pt,a4paper]{ctexart}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage[hidelinks]{hyperref}
+
+% ---------- 填写区（每次生成时替换） ----------
+\newcommand{\docproject}{示例项目}        % 项目名
+\newcommand{\docreq}{REQ-01 周报导出}      % 需求编号与名称
+\newcommand{\docversion}{v1}              % 版本（与需求理解版本一致）
+\newcommand{\docdate}{2026年9月4日}        % 日期
+% --------------------------------------------
+
+% ---------- 主题色（可整体调整风格） ----------
+\definecolor{accent}{RGB}{72,84,196}      % 主色
+\definecolor{accentlight}{RGB}{238,240,250}
+\definecolor{graytext}{RGB}{110,110,120}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{graytext}\docproject}
+\fancyhead[R]{\small\color{graytext}\docreq\ · \docversion}
+\fancyfoot[C]{\small\color{graytext}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\title{\huge\bfseries 功能确认说明\\[0.4em]\Large\color{accent}\docreq}
+\author{}
+\date{\docdate · 版本 \docversion}
+
+\begin{document}
+
+% ================= 封面 =================
+\begin{titlepage}
+\centering
+\vspace*{3cm}
+{\color{accent}\rule{\textwidth}{2pt}}\\[1.2em]
+{\Huge\bfseries 功能确认说明}\\[1.2em]
+{\LARGE\color{accent}\docreq}\\[2.4em]
+{\Large \docproject}\\[1em]
+{\large 版本 \docversion}\\[0.6em]
+{\large \docdate}\\[2em]
+{\color{accent}\rule{\textwidth}{2pt}}
+\vfill
+{\small\color{graytext} 本文档用于确认本次交付的功能范围与效果，\\请逐节核对后于文末确认栏签字。}
+\vspace*{1.5cm}
+\end{titlepage}
+
+% ================= 一、需求追溯总表 =================
+\section{需求追溯总表}
+您提出的每一条需求与本次交付的对应关系：
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{5.6cm}>{\raggedright\arraybackslash}p{4.2cm}>{\raggedright\arraybackslash}p{4.2cm}}
+\toprule
+\textbf{您的原始需求（原话）} & \textbf{对应功能点} & \textbf{交付效果} \\
+\midrule
+“（客户原话 1）” & FP-1 …… & （开发完后用户看到/能做到什么） \\
+“（客户原话 2）” & FP-2 …… & …… \\
+（未覆盖的原话如实列入并标注：本次不包含，原因见第五节） & — & — \\
+\bottomrule
+\end{longtable}
+
+% ================= 二、功能说明 =================
+\section{功能说明（开发完成后的效果）}
+
+\subsection*{FP-1 <功能名>}
+效果描述：面向使用者视角，写“你会看到什么、能做到什么”，不写技术实现。
+
+\subsection*{FP-2 <功能名>}
+……
+
+% ================= 三、交互说明 =================
+\section{交互说明}
+
+\subsection*{3.1 <流程名>}
+\begin{enumerate}
+  \item 您点击【……】
+  \item 系统展示……
+  \item ……
+\end{enumerate}
+
+\subsection*{3.2 <流程名>}
+……
+
+% ================= 四、界面预览 =================
+\section{界面预览}
+
+% 原型截图：\includegraphics[width=0.92\textwidth]{截图文件名.png}
+（此处插入原型页面截图，每图配一行说明）
+
+% ================= 五、本次不包含 =================
+\section{本次不包含}
+为避免期望差异，以下内容\textbf{不在}本次交付范围内：
+\begin{itemize}
+  \item ……（及原因/后续安排）
+\end{itemize}
+
+% ================= 六、确认栏 =================
+\section{确认}
+如以上内容与您的需求一致，请确认：
+\vspace{1.5em}
+
+\noindent
+\begin{tabular}{p{5cm}p{5cm}p{4cm}}
+确认人（签字）：\rule[-0.2cm]{3cm}{0.4pt} & 日期：\rule[-0.2cm]{2.5cm}{0.4pt} & 版本：\docversion \\
+\end{tabular}
+
+\end{document}

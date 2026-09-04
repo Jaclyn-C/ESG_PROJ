@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>汇报模板 · PM-workflow</title>
+<style>
+  /* ============ 简约风幻灯片模板：16:9，离线可用 ============ */
+  :root {
+    --accent: #4754C4;        /* 主色：按项目风格改这里即可全局换色 */
+    --accent-soft: #EEF0FA;
+    --ink: #1F2329;           /* 正文 */
+    --ink-2: #646A73;         /* 次级文字 */
+    --bg: #FFFFFF;
+    --line: #E5E6EB;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: #F2F3F5; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; color: var(--ink); }
+
+  /* 幻灯片：固定 16:9 画布，缩放适配窗口 */
+  .deck { position: relative; width: 1280px; height: 720px; margin: 0 auto; transform-origin: center; }
+  .slide { position: absolute; inset: 0; background: var(--bg); padding: 64px 88px; display: none; flex-direction: column; }
+  .slide.active { display: flex; }
+  .slide .kicker { color: var(--accent); font-size: 18px; font-weight: 600; letter-spacing: .12em; margin-bottom: 14px; }
+  .slide h1 { font-size: 56px; line-height: 1.25; }
+  .slide h2 { font-size: 40px; line-height: 1.3; margin-bottom: 34px; }
+  .slide .grow { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 28px; }
+  .slide .foot { color: var(--ink-2); font-size: 15px; display: flex; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 14px; }
+
+  /* 封面 */
+  .cover { justify-content: center; }
+  .cover h1 { font-size: 68px; margin: 18px 0 26px; }
+  .cover .sub { color: var(--ink-2); font-size: 24px; }
+  .cover .bar { width: 88px; height: 6px; background: var(--accent); border-radius: 3px; }
+
+  /* 要点页：单条 ≤15 字，≤5 条 */
+  ul.points { list-style: none; display: flex; flex-direction: column; gap: 22px; }
+  ul.points li { font-size: 30px; display: flex; align-items: center; gap: 18px; }
+  ul.points li::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); flex: none; }
+
+  /* 大数字页 */
+  .bignum { display: flex; align-items: baseline; gap: 20px; }
+  .bignum .n { font-size: 120px; font-weight: 700; color: var(--accent); line-height: 1; }
+  .bignum .label { font-size: 28px; color: var(--ink-2); }
+
+  /* 双栏 */
+  .cols { display: flex; gap: 40px; }
+  .col { flex: 1; background: var(--accent-soft); border-radius: 16px; padding: 32px; }
+  .col .t { font-size: 26px; font-weight: 600; color: var(--accent); margin-bottom: 14px; }
+  .col .d { font-size: 20px; color: var(--ink-2); line-height: 1.6; }
+
+  /* 流程条 */
+  .flow { display: flex; align-items: center; gap: 12px; }
+  .flow .step { background: var(--accent); color: #fff; border-radius: 12px; padding: 16px 22px; font-size: 22px; }
+  .flow .arr { color: var(--ink-2); font-size: 22px; }
+
+  /* 翻页器 */
+  .pager { position: fixed; right: 18px; bottom: 12px; color: var(--ink-2); font-size: 13px; user-select: none; }
+
+  /* 打印/导出 PDF：一页一幻灯片 */
+  @media print {
+    body { background: #fff; }
+    .deck { width: 1280px; height: 720px; transform: none !important; }
+    .slide { display: flex !important; position: relative; page-break-after: always; }
+    .pager { display: none; }
+    @page { size: 1280px 720px; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- ===== 封面 ===== -->
+  <section class="slide cover active">
+    <div class="bar"></div>
+    <h1>汇报标题</h1>
+    <div class="sub">副标题 / 项目名 · 2026-09</div>
+  </section>
+
+  <!-- ===== 要点页 ===== -->
+  <section class="slide">
+    <div class="kicker">01 · 章节名</div>
+    <h2>这一页讲一件事</h2>
+    <div class="grow"><ul class="points">
+      <li>要点一（≤15 字）</li>
+      <li>要点二</li>
+      <li>要点三</li>
+    </ul></div>
+    <div class="foot"><span>汇报人</span><span>页脚备注</span></div>
+  </section>
+
+  <!-- ===== 大数字页 ===== -->
+  <section class="slide">
+    <div class="kicker">02 · 章节名</div>
+    <h2>用数字说话</h2>
+    <div class="grow"><div class="bignum"><span class="n">86%</span><span class="label">需求的客户确认率</span></div></div>
+    <div class="foot"><span>数据截至 2026-09</span><span></span></div>
+  </section>
+
+  <!-- ===== 双栏对比页 ===== -->
+  <section class="slide">
+    <div class="kicker">03 · 章节名</div>
+    <h2>两件事对比着说</h2>
+    <div class="grow"><div class="cols">
+      <div class="col"><div class="t">现状</div><div class="d">一句话描述现状</div></div>
+      <div class="col"><div class="t">方案</div><div class="d">一句话描述方案</div></div>
+    </div></div>
+    <div class="foot"><span></span><span></span></div>
+  </section>
+
+  <!-- ===== 流程页 ===== -->
+  <section class="slide">
+    <div class="kicker">04 · 章节名</div>
+    <h2>流程一目了然</h2>
+    <div class="grow"><div class="flow">
+      <div class="step">步骤一</div><div class="arr">→</div>
+      <div class="step">步骤二</div><div class="arr">→</div>
+      <div class="step">步骤三</div><div class="arr">→</div>
+      <div class="step">结果</div>
+    </div></div>
+    <div class="foot"><span></span><span></span></div>
+  </section>
+
+  <!-- ===== 结尾 ===== -->
+  <section class="slide cover">
+    <div class="bar"></div>
+    <h1>谢谢</h1>
+    <div class="sub">欢迎讨论</div>
+  </section>
+
+</div>
+<div class="pager" id="pager">1 / 6</div>
+
+<script>
+  // 翻页：← → 方向键 / 空格 / 点击屏幕左右侧
+  const slides = [...document.querySelectorAll('.slide')];
+  let i = 0;
+  const show = n => {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle('active', k === i));
+    document.getElementById('pager').textContent = (i + 1) + ' / ' + slides.length;
+  };
+  const fit = () => {
+    const s = Math.min(innerWidth / 1280, innerHeight / 720) * 0.96;
+    document.getElementById('deck').style.transform = 'scale(' + s + ')';
+  };
+  addEventListener('resize', fit); fit();
+  addEventListener('keydown', e => {
+    if (['ArrowRight', ' ', 'PageDown'].includes(e.key)) { show(i + 1); e.preventDefault(); }
+    if (['ArrowLeft', 'PageUp'].includes(e.key)) { show(i - 1); e.preventDefault(); }
+  });
+  addEventListener('click', e => show(e.clientX > innerWidth / 2 ? i + 1 : i - 1));
+  show(0);
+</script>
+</body>
+</html>
