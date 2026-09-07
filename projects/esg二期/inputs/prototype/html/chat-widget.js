@@ -6,8 +6,11 @@
  *   · 智能问答（默认）—— 知识库检索、附件内容提取演示
  *   · 报告生成 Agent —— 固定演示流程：解析→指标匹配确认→生成报告
  *   · 指标信息采集表 Agent —— 模板解析→映射确认→按年填充→文件下载
- *   · 数据选择（REQ-01 v4）—— 指标库→维度→主题→议题→指标 五层下钻 / 子树搜索 /
- *     已选区逐指标配置年份与维度（FII·分会·法人·策进组 二级弹窗），多选提交后 AI 一次性以单一表格返回查询结果
+ *   · 数据选择（REQ-01 v6）—— 指标库→维度→主题→议题→指标 五层下钻 / 子树搜索 /
+ *     已选区逐指标配置年份与维度（跨维度勾选：同一指标可同时选 FII＋分会＋法人＋策进组 对象，所有选择不互斥；
+ *     维度弹窗选中行着色＋按维度着色的已选对象总览 chips），多选提交后 AI 一次性以单一表格返回
+ *     （每个所选维度对象一行、无数值加总；列集＝指标代码/名称/年份/维度对象/数值/单位，无数据来源列），
+ *     结果表格可 ⛶ 全屏查看
  *   · 附件仅通过 📎 上传按钮提供（支持单选/多选真实文件）
  *
  * 说明：纯前端原型，所有对话为预设脚本模拟，不含后端逻辑；
@@ -410,9 +413,10 @@
     '#ecw-root .ecw-bigf{padding:10px 14px;border-top:1px solid #eef0f5;background:#fafbfe;display:flex;',
     ' align-items:center;gap:8px;flex-shrink:0}',
 
-    /* ---- 📊 数据选择弹窗（REQ-01 v4：五层下钻 + 子树搜索 + 已选区逐指标配置年份/维度）----
+    /* ---- 📊 数据选择弹窗（REQ-01 v6：五层下钻 + 子树搜索 + 已选区逐指标配置年份与跨维度维度）----
        界面形态（弹窗/抽屉/面板）待确认：原型按【🗂】知识库选择弹窗形态实现，
-       复用其遮罩 ecw-kbmask / 指标行 ecw-kbfile+ecw-kchk / 底栏 ecw-kbfoot。 */
+       复用其遮罩 ecw-kbmask / 指标行 ecw-kfile+ecw-kchk / 底栏 ecw-kbfoot
+       （v6 修正：行类名此前误写为 ecw-kbfile——该类无样式，致选中行无着色；现统一用 ecw-kfile）。 */
     '#ecw-root .ecw-dsdlg{width:470px;max-width:92vw;background:#fff;border-radius:8px;overflow:hidden;',
     ' box-shadow:0 18px 50px rgba(19,51,104,.28);display:flex;flex-direction:column}',
     '#ecw-root .ecw-dscrumb{padding:9px 14px 0;font-size:12px;display:flex;align-items:center;',
@@ -460,7 +464,9 @@
     '#ecw-root .ecw-dserm:hover{color:#ff371d;background:#ffe9e5}',
     '#ecw-root .ecw-dsecfg{display:flex;align-items:center;gap:6px;flex-wrap:wrap}',
 
-    /* ---- 🧭 指标条目内的年份/维度配置控件（REQ-01 v4，指标级）与维度二级弹窗（前缀 ecw-dim*） ---- */
+    /* ---- 🧭 指标条目内的年份/维度配置控件（REQ-01 v6，指标级）与维度二级弹窗（前缀 ecw-dim*）：
+       v5 起维度弹窗为跨维度勾选——四个维度各自记忆勾选、切页签不丢，页签角标显示各自数量；
+       v6 增选中可视化——已勾选行着色选中态（复用主选择弹窗 .ecw-kfile.on）＋已选对象总览 chips ---- */
     '#ecw-root .ecw-dsyear{height:28px;border:1px solid #dfe3ee;border-radius:6px;background:#fbfcff;',
     ' font-size:12px;color:#1f2329;font-family:inherit;padding:0 6px;outline:none;cursor:pointer;',
     ' flex-shrink:0;transition:border-color .15s,background .15s}',
@@ -491,13 +497,60 @@
     ' line-height:15px;border-radius:8px;background:#3f7afa;color:#fff;font-size:10px;margin-left:4px;padding:0 3px}',
     '#ecw-root .ecw-dimtip{margin:8px 12px 0;padding:6px 10px;font-size:11px;color:#8a919f;',
     ' background:#fafbfe;border-radius:4px;line-height:1.6;flex-shrink:0}',
-    '#ecw-root .ecw-dimbody{max-height:46vh;overflow-y:auto;padding:6px 8px 10px}',
+    '#ecw-root .ecw-dimbody{max-height:40vh;overflow-y:auto;padding:6px 8px 10px}',
     '#ecw-root .ecw-dimbody::-webkit-scrollbar{width:6px}',
     '#ecw-root .ecw-dimbody::-webkit-scrollbar-thumb{background:#d8dce6;border-radius:3px}',
     '#ecw-root .ecw-dimgroup{margin-bottom:2px}',
     '#ecw-root .ecw-dimkids{border-left:1px dashed #e3e7f0;margin:0 0 2px 13px}',
     '#ecw-root .ecw-dimnote{font-size:10.5px;color:#98a0ad;flex-shrink:0}',
-    '#ecw-root .ecw-cardtitle .ecw-aitag{margin-left:auto}'
+
+    /* ---- 🏷 跨维度已选对象总览区（REQ v6 流程 C 第 8-9 步）：位于页签下方、提示与选项列表上方；
+       chips 按所属维度着色（色系取自现有配色：蓝＝主色系、绿＝成功色系、橙＝警示色系、灰＝中性），
+       跨页签可见，随勾选实时刷新，chip ✕ 单独移除并联动行勾选/页签角标 ---- */
+    '#ecw-root .ecw-dimsel{margin:8px 12px 0;padding:7px 9px;background:#f7f9fd;',
+    ' border:1px solid #e8edf6;border-radius:6px;flex-shrink:0}',
+    '#ecw-root .ecw-dimselh{font-size:11px;color:#8a919f;margin-bottom:5px}',
+    '#ecw-root .ecw-dimselh i{font-style:normal;color:#133368;font-weight:600}',
+    '#ecw-root .ecw-dimselc{display:flex;flex-wrap:wrap;gap:5px}',
+    '#ecw-root .ecw-dimselnone{font-size:11px;color:#aab1bd}',
+    '#ecw-root .ecw-dimchip{display:inline-flex;align-items:center;gap:5px;max-width:100%;',
+    ' padding:2px 4px 2px 8px;border-radius:9px;font-size:11px;line-height:1.5;border:1px solid}',
+    '#ecw-root .ecw-dimchipnm{min-width:0;max-width:230px;white-space:nowrap;overflow:hidden;',
+    ' text-overflow:ellipsis}',
+    '#ecw-root .ecw-dimchip i{font-style:normal;cursor:pointer;flex-shrink:0;width:14px;height:14px;',
+    ' line-height:14px;text-align:center;border-radius:50%;opacity:.55;font-size:10px}',
+    '#ecw-root .ecw-dimchip i:hover{opacity:1;background:rgba(0,0,0,.08)}',
+    '#ecw-root .ecw-dimchip-fii{color:#5a6472;background:#f1f3f7;border-color:#d7dce6}',
+    '#ecw-root .ecw-dimchip-branch{color:#2f5fd0;background:#eef3ff;border-color:#c9d9fb}',
+    '#ecw-root .ecw-dimchip-legal{color:#2e7d3f;background:#ecf6ee;border-color:#cde8d2}',
+    '#ecw-root .ecw-dimchip-cpa{color:#b06200;background:#fdf3e7;border-color:#f3ddb8}',
+    '#ecw-root .ecw-cardtitle .ecw-aitag{margin-left:auto}',
+
+    /* ---- ⛶ 结果表格全屏（REQ v6 FP-8 / 流程 D）：覆盖层全屏（默认口径；是否改用浏览器原生
+       Fullscreen API 待确认——REQ v6 待确认 7）。遮罩 z-index 高于维度二级弹窗的 2147483450 ---- */
+    '#ecw-root .ecw-dsfsbtn{height:20px;line-height:18px;border:1px solid #dfe3ec;background:#fff;',
+    ' border-radius:4px;padding:0 8px;font-size:11px;color:#5a6472;cursor:pointer;font-family:inherit;',
+    ' flex-shrink:0;white-space:nowrap;transition:all .15s}',
+    '#ecw-root .ecw-dsfsbtn:hover{border-color:#3f7afa;color:#3f7afa}',
+    '#ecw-root .ecw-dsfsmask{position:fixed;inset:0;background:rgba(15,25,50,.55);z-index:2147483500;',
+    ' display:none;align-items:center;justify-content:center;padding:24px}',
+    '#ecw-root .ecw-dsfsmask.open{display:flex;animation:ecwIn .18s ease}',
+    '#ecw-root .ecw-dsfsbox{width:min(1200px,96vw);height:calc(100vh - 48px);max-height:90vh;',
+    ' background:#fff;border-radius:10px;display:flex;flex-direction:column;overflow:hidden;',
+    ' box-shadow:0 18px 60px rgba(19,51,104,.4)}',
+    '#ecw-root .ecw-dsfsh{height:48px;display:flex;align-items:center;gap:10px;padding:0 16px;',
+    ' flex-shrink:0;border-bottom:1px solid #eef0f5}',
+    '#ecw-root .ecw-dsfsname{flex:1;min-width:0;font-size:14px;font-weight:600;color:#133368;',
+    ' white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '#ecw-root .ecw-dsfsx{width:30px;height:30px;border:none;background:transparent;cursor:pointer;',
+    ' font-size:15px;color:#98a0ad;border-radius:4px;flex-shrink:0}',
+    '#ecw-root .ecw-dsfsx:hover{color:#ff371d;background:#ffe9e5}',
+    '#ecw-root .ecw-dsfsbody{flex:1;overflow:auto;padding:12px 16px}',
+    '#ecw-root .ecw-dsfsbody::-webkit-scrollbar{width:6px}',
+    '#ecw-root .ecw-dsfsbody::-webkit-scrollbar-thumb{background:#d8dce6;border-radius:3px}',
+    '#ecw-root .ecw-dsfsbody .ecw-tbl{font-size:12.5px}',
+    '#ecw-root .ecw-dsfsfoot{padding:9px 16px;border-top:1px solid #eef0f5;background:#fafbfe;',
+    ' font-size:11px;color:#8a919f;flex-shrink:0;line-height:1.6}'
   ].join('');
 
   /* ================================================================
@@ -540,7 +593,7 @@
     '      <div class="ecw-agentbtns">' +
     '        <button class="ecw-agentbtn" data-mode="report">报告生成</button>' +
     '        <button class="ecw-agentbtn" data-mode="collect">指标信息采集表</button>' +
-    // 📊 数据选择（REQ-01 v4）：排在【指标信息采集表】之后。
+    // 📊 数据选择（REQ-01 v6）：排在【指标信息采集表】之后。
     // 正式口径：仅管理员可见（全局规则 7，与上两个功能按钮一致）——
     // 原型 mock 无角色体系，故与既有按钮一致无条件显示；无 data-mode（不切换对话模式）。
     '        <button class="ecw-agentbtn" id="ecw-databtn">数据选择</button>' +
@@ -1807,21 +1860,36 @@
   };
 
   /* ================================================================
-   * 九·二、📊 数据选择（REQ-01 v4）：五层下钻 + 子树搜索 + 已选区逐指标配置 + 多选提交
+   * 九·二、📊 数据选择（REQ-01 v6）：五层下钻 + 子树搜索 + 已选区逐指标配置 + 多选提交
    * ------------------------------------------------------------
    * 层级：指标库（第 1 层，仅「有效」库）→ 维度 → 主题 → 议题 → 指标（第 5 层）。
    * 年份与维度为**指标级配置**（v4 纠正：不放在全局条件行，而在每个已选指标条目内）：
-   * 条目＝指标代码＋名称＋该指标自己的 年份下拉（可不选，默认当年＝2026）＋【维度选择】入口
-   * （四维度单选切换、维度内多选、可不选，默认 FII）＋移除（移除即丢弃其配置）。
+   * 条目＝指标代码＋名称＋该指标自己的 年份下拉（可不选，默认当年＝2026）＋【维度选择】入口＋
+   * 移除（移除即丢弃其全部配置，含跨维度对象）。
+   * 维度为**跨维度勾选**（v5 变更一，FP-7 重定义；v4「四维度单选切换」口径作废）：二级弹窗内
+   * 四个维度各自记忆勾选（切页签不丢，页签角标显示各自数量），同一指标可同时勾 分会若干＋
+   * 法人若干＋策进组若干（每个维度内仍多选）；FII＝整体口径的普通可勾选项，可与其他维度对象
+   * 同时勾选（v6 9/7 用户拍板："现在是4个维度之间，维度内之间，都是可以多选的，用户选择什么
+   * 就返回什么结果。所有选择都不互斥"）；唯一默认：全部不选＝按 FII 整体查询（1 行）；
+   * 策进组两级：只勾一级＝覆盖整组、计 1 个对象。
+   * 选中可视化（v6 变更二，FP-7 增强；用户痛点「选中后只能看到数字增加，看不到选了什么」）：
+   * ① 页签内已勾选行着色选中态（高亮底色＋✓ 勾选标记，与主选择弹窗选中行一致＝.ecw-kfile.on），
+   *    切页签再切回保持；② 弹窗内「已选对象」总览区——一对象一枚 chip、按所属维度着色
+   *    （FII 灰 / 分会蓝 / 法人绿 / 策进组橙），chip 文字「维度 · 对象名」，✕ 单独移除并联动
+   *    行勾选与页签角标，随勾选实时刷新、跨页签可见（流程 C 第 7-9 步）；③ 页签数量角标保留。
    * · 界面形态（弹窗/抽屉/面板）待确认 —— 原型按【🗂】知识库选择弹窗形态实现，维度为叠层二级弹窗；
    * · 【数据选择】按钮正式口径仅管理员可见（全局规则 7）—— 原型 mock 无角色体系，
    *   与【报告生成】【指标信息采集表】一致无条件显示；
    * · mock：无论选择哪个指标库，第 2-5 层均复用同一棵 环境→主题→议题→指标 树（REQ v2 拍板）；
    * · 搜索范围 = 当前停留层级节点的子树内所有指标（跨下级直达），仅匹配指标名称；
-   *   搜索不扩展到维度选项、不覆盖年份与维度（REQ v4 流程 B 第 5 步默认口径）；
-   * · 结果表格：行＝Σ(每个指标 × 该指标所选维度对象数)（未选维度＝1 个默认对象 FII），年份列/
-   *   维度对象列取各指标各自配置，列＝指标代码/指标名称/年份/维度对象/数值/单位/数据来源
-   *   —— 列集与列序待确认（REQ v4 待确认 1）；
+   *   搜索不扩展到维度选项、不覆盖年份与维度（REQ v6 流程 B 第 5 步默认口径）；
+   * · 结果表格：行与选择**一一对应**——每个所选维度对象对应一条数据（无数值加总、无合并汇总行；
+   *   同一指标 N 个对象＝N 行，未选维度＝1 个默认对象 FII；用户口述例证：某指标选
+   *   分会·CESBG＋法人·富联科技(晋城)＋策进组·E策进组 → 该指标 3 行）；维度对象列显示
+   *   「维度名 · 对象名」（拆两列待确认 2）；**列集已定（v6 9/7 拍板，数据来源列删除）：指标代码/
+   *   指标名称/年份/维度对象/数值/单位——仅列序与无数据表现待确认（待确认 1）**；
+   * · 结果表格支持 ⛶ 全屏（FP-8 / 流程 D）：覆盖层全屏查看整表（列集同上、无数据来源列；
+   *   实现方式待确认 7）。
    * · 搜索无结果的空态表现（文案/样式）待确认 —— 原型先按「暂无匹配指标」展示。
    * ================================================================ */
 
@@ -1880,27 +1948,30 @@
     return out;
   }
 
-  /* ---- REQ-01 v4：年份与维度（指标级配置）的数据与工具函数 -------------------
-   * （v3 引入、v4 纠正为指标级：年份/维度随各已选指标条目各自配置，非全局条件） */
+  /* ---- REQ-01 v6：年份与维度（指标级配置）的数据与工具函数 -------------------
+   * （v3 引入 → v4 纠正为指标级：年份/维度随各已选指标条目各自配置，非全局条件 →
+   *  v5 维度升级为跨维度勾选：同一指标可同时勾多个维度的对象，确认结构 {parts:[{type,obs:[…]}]} →
+   *  v6 维度弹窗增选中可视化：行着色选中态＋按维度着色的已选总览 chips） */
 
   var DS_CUR_YEAR = 2026;                                /* 当年（年份可不选，不选默认当年） */
   var DS_YEARS = [2026, 2025, 2024, 2023, 2022, 2021];   /* mock：近六年（「近年若干年」） */
 
-  /* 维度类型（REQ v4 流程 C 第 2 步：四维度单选切换） */
+  /* 维度类型（REQ v6 流程 C 第 2 步：四个维度的选项区，跨维度勾选——各自记忆、互不作废；
+   * short＝总览 chip 与摘要用的短名） */
   var DIM_TYPES = [
-    { key: 'fii', name: 'FII' },
-    { key: 'branch', name: '分会层级' },
-    { key: 'legal', name: '法人层级' },
-    { key: 'cpa', name: '策进组层级' }
+    { key: 'fii', name: 'FII', short: 'FII' },
+    { key: 'branch', name: '分会层级', short: '分会' },
+    { key: 'legal', name: '法人层级', short: '法人' },
+    { key: 'cpa', name: '策进组层级', short: '策进组' }
   ];
 
-  /* 分会层级 · 13 项扁平单层（REQ v4 第 9.2 节，照抄 分会.png，含系统测试数据） */
+  /* 分会层级 · 13 项扁平单层（REQ v6 第 9.2 节，照抄 分会.png，含系统测试数据；附录数据 v4 起沿用不变） */
   var DIM_BRANCHES = [
     'Angel-test', 'beck-分会', 'CESBG', 'CNSBG', 'iPEBG-iPEG', 'iPEBG-PMEG', 'SEG',
     'TARG', 'TEST', 'TEST2', 'WTT-test', 'Xuyu-Test', 'zhushen'
   ];
 
-  /* 法人层级 · 10 项扁平单层，每项＝法人代码＋法人名称（REQ v4 第 9.3 节，照抄 法人.png） */
+  /* 法人层级 · 10 项扁平单层，每项＝法人代码＋法人名称（REQ v6 第 9.3 节，照抄 法人.png；附录数据 v4 起沿用不变） */
   var DIM_LEGALS = [
     { code: 'Xuyu-test2', name: '法人2' },
     { code: '67890', name: 'MZ测试' },
@@ -1914,7 +1985,7 @@
     { code: 'A086996', name: '富联裕康医疗科技(深圳)有限公司' }
   ];
 
-  /* 策进组层级 · 两级：3 个一级策进组＋各自二级组织（REQ v4 第 9.4 节，照抄 策进组.png）。
+  /* 策进组层级 · 两级：3 个一级策进组＋各自二级组织（REQ v6 第 9.4 节，照抄 策进组.png；附录数据 v4 起沿用不变）。
    * G 策进组第 10 项截图截断，按 REQ 原样记录为「G1商业道德-弊弊防治处」，
    * 疑为「G10商业道德-弊端防治处」—— 待核实 */
   var DIM_CPA = [
@@ -1930,6 +2001,11 @@
     for (var i = 0; i < DIM_TYPES.length; i++) if (DIM_TYPES[i].key === key) return DIM_TYPES[i].name;
     return 'FII';
   }
+  /* 维度短名（v6：总览 chip 文字与跨维度摘要用，如 分会/法人/策进组） */
+  function dimShort(key) {
+    for (var i = 0; i < DIM_TYPES.length; i++) if (DIM_TYPES[i].key === key) return DIM_TYPES[i].short;
+    return 'FII';
+  }
   function dsIsCpaGroup(name) {
     for (var i = 0; i < DIM_CPA.length; i++) if (DIM_CPA[i].name === name) return true;
     return false;
@@ -1940,18 +2016,23 @@
     if (type === 'cpa' && dsIsCpaGroup(it)) return String(it) + '（整组）';
     return String(it);
   }
-  /* 维度摘要（紧凑，用户消息/进度用）：如「分会层级×3」；未选＝FII（默认） */
-  function dimSum(dim) {
-    if (!dim) return 'FII（默认）';
-    if (dim.type === 'fii') return 'FII';
-    return dimTypeName(dim.type) + '×' + dim.items.length;
+  /* 跨维度勾选对象总数（选择与返回一一对应：此数值＝该指标的结果行数，无数值加总含义） */
+  function dimPartsCount(parts) {
+    var n = 0;
+    parts.forEach(function (p) { n += p.obs.length; });
+    return n;
   }
-  /* 维度摘要（带对象名，条目内回显用）：如「分会层级×3（CESBG、SEG…）」 */
-  function dimBrief(dim) {
-    if (!dim) return 'FII（默认）';
-    if (dim.type === 'fii') return 'FII';
-    var labels = dim.items.slice(0, 2).map(function (it) { return dimObjLabel(dim.type, it); }).join('、');
-    return dimSum(dim) + (labels ? '（' + labels + (dim.items.length > 2 ? '…' : '') + '）' : '');
+  /* 跨维度维度摘要（用户消息/进度/条目回显共用，REQ v6 FP-7）：
+   * 如「分会×2、法人×1、策进组×1」；未选＝FII（默认）；显式只勾 FII＝FII（整体 1 行）；
+   * FII 可与其他维度混选（v6 9/7 拍板不互斥），混选时 FII 计入摘要，如「FII、分会×1」 */
+  function dimSum(dim) {
+    if (!dim || !dim.parts || !dim.parts.length) return 'FII（默认）';
+    var segs = [];
+    dim.parts.forEach(function (p) {
+      if (p.type === 'fii') segs.push('FII');
+      else segs.push(dimShort(p.type) + '×' + p.obs.length);
+    });
+    return segs.join('、');
   }
 
   /* 维度对象分担系数（mock）：FII＝1（整体口径）；各组织对象按标签稳定散列出 0.20~1.05 的占比，
@@ -1978,40 +2059,68 @@
     var off = DS_CUR_YEAR - (year || DS_CUR_YEAR);
     return dsFmtNum(p.num * (1 + 0.035 * off) * obj.f, p.dec);
   }
-  /* 查询口径的维度对象列表：未选维度（或维度＝FII）＝1 个默认对象 FII；否则展开为已选对象 */
+  /* 查询口径的维度对象列表（v5 跨维度展开）：未选维度＝1 个默认对象 FII；否则按 parts 展开
+   * 各维度的各对象——**选择与返回一一对应**：每个所选对象对应一条数据（无数值加总、无合并/汇总行）。
+   * 用户口述例证（REQ v5 本版变更）："某一个指标选3个不同的维度，就会显示3条同一个指标，
+   * 从数据库里通过不同维度找到的3条数据"——如 分会·CESBG＋法人·富联科技(晋城)＋策进组·E策进组 → 3 行。
+   * cell＝结果表「维度对象」列文案「维度名 · 对象名」（如「分会层级 · CESBG」；拆两列待确认 2） */
   function dimQueryObjs(dim) {
-    if (!dim || dim.type === 'fii') return [{ label: 'FII', f: 1 }];
-    return dim.items.map(function (it) {
-      var label = dimObjLabel(dim.type, it);
-      return { label: label, f: dsObjFactor(dim.type + '|' + label) };
+    if (!dim || !dim.parts || !dim.parts.length) return [{ label: 'FII', cell: 'FII', f: 1 }];
+    var out = [];
+    dim.parts.forEach(function (p) {
+      p.obs.forEach(function (it) {
+        var label = dimObjLabel(p.type, it);
+        out.push({
+          label: label,
+          cell: p.type === 'fii' ? 'FII' : dimTypeName(p.type) + ' · ' + label,
+          f: p.type === 'fii' ? 1 : dsObjFactor(p.type + '|' + label)
+        });
+      });
     });
+    return out;
   }
 
-  /* 维度选择二级弹窗（REQ v4 流程 C）：叠在数据选择弹窗之上（遮罩 z-index 更高），风格对齐既有弹窗。
-   * 入口与落点＝**当前配置的指标条目**：cur 传入该条目已设维度，onOk(dim) 由条目回调把结果只写回该条目，
-   * 其他条目不受影响。
-   * 四维度单选切换（tab）＋维度内多选；可不选（确认时当前类型未勾选任何项＝不设定维度，默认 FII）。
-   * 不提供搜索 —— 搜索仅作用于指标选择，维度弹窗是否需要搜索待确认（REQ v4 待确认 2）。
-   * cur：当前条目已设维度（null＝未选）；onOk(dim)：确认后回调（null＝清除为默认 FII） */
+  /* 维度选择二级弹窗（REQ v6 流程 C · 跨维度勾选＋选中可视化）：叠在数据选择弹窗之上
+   * （遮罩 z-index 更高），风格对齐既有弹窗。入口与落点＝**当前配置的指标条目**：cur 传入该条目
+   * 已设维度，onOk(dim) 由条目回调把结果只写回该条目，其他条目不受影响。
+   * 跨维度勾选（v5 变更一，FP-7；v4「四维度单选切换」口径作废）：四个维度各自记忆勾选
+   * （切页签不丢，页签角标显示各自数量），同一指标可同时勾 分会若干＋法人若干＋策进组若干
+   * （每个维度内仍多选）。
+   * FII＝整体口径的普通可勾选项，可与其他维度对象同时勾选（v6 9/7 用户拍板：所有选择都不
+   * 互斥——勾任何对象均无取消/清空其他勾选的联动）；唯一默认：全部不选＝不设定维度（按 FII 整体查询）。
+   * 选中可视化（v6 变更二）：① 已勾选行着色选中态（.ecw-kfile.on，与主选择弹窗一致，
+   * 切页签再切回保持）；② 页签下方「已选对象」总览区——chips 按维度着色、跨页签可见、
+   * 随勾选实时刷新，chip ✕ 单独移除并联动行勾选/页签角标（流程 C 第 7-9 步）。
+   * 不提供搜索 —— 搜索仅作用于指标选择，维度弹窗是否需要搜索待确认（REQ v6 待确认 4）。
+   * cur：当前条目已设维度（null＝未选；结构 {parts:[{type,obs:[…]}]}）；
+   * onOk(dim)：确认后回调（非空跨维度结构，或 null＝清除为默认 FII） */
   function openDimPicker(cur, onOk) {
-    var active = cur ? cur.type : 'fii';                       /* 当前维度类型（tab 单选切换） */
-    var picked = { fii: [], branch: [], legal: [], cpa: [] };  /* 各类型的临时勾选 */
-    if (cur && picked[cur.type] && cur.items) picked[cur.type] = cur.items.slice();
+    var active = 'fii';                                        /* 当前页签（仅切换浏览，不作废其他维度勾选） */
+    var picked = { fii: [], branch: [], legal: [], cpa: [] };  /* 各维度各自记忆的勾选 */
+    if (cur && cur.parts) {
+      cur.parts.forEach(function (p) {
+        if (picked[p.type]) picked[p.type] = p.obs.slice();
+      });
+      if (cur.parts.length) active = cur.parts[0].type;       /* 回显时停在首个已配维度页签 */
+    }
 
     var mask = el('div', 'ecw-dimmask');
     var dlg = el('div', 'ecw-dimdlg');
     dlg.innerHTML =
       '<div class="ecw-kbh">🧭 维度选择 · 圈定查询对象<button title="关闭">✕</button></div>' +
       '<div class="ecw-dimtabs"></div>' +
+      '<div class="ecw-dimsel"><div class="ecw-dimselh"></div><div class="ecw-dimselc"></div></div>' +
       '<div class="ecw-dimtip"></div>' +
       '<div class="ecw-dimbody"></div>' +
-      '<div class="ecw-kbfoot"><span class="ecw-kbhint">维度可不选，不选默认 FII；确认以当前维度类型下的勾选为准</span>' +
+      '<div class="ecw-kbfoot"><span class="ecw-kbhint"></span>' +
       '<button class="ecw-btn">取消</button><button class="ecw-btn ecw-solid">确 认</button></div>';
     mask.appendChild(dlg);
     root.appendChild(mask);
     mask.classList.add('open');
 
     var tabsBox = dlg.querySelector('.ecw-dimtabs');
+    var chipsH = dlg.querySelector('.ecw-dimselh');
+    var chipsBox = dlg.querySelector('.ecw-dimselc');
     var tip = dlg.querySelector('.ecw-dimtip');
     var body = dlg.querySelector('.ecw-dimbody');
     var hint = dlg.querySelector('.ecw-kbhint');
@@ -2020,18 +2129,68 @@
     dlg.querySelector('.ecw-kbh button').onclick = close;
     dlg.querySelector('.ecw-kbfoot .ecw-btn').onclick = close;
 
+    /* 当前勾选组装为 parts（非空维度各自一段，确认回调与底部提示共用此结构） */
+    function pickedParts() {
+      var parts = [];
+      DIM_TYPES.forEach(function (t) {
+        if (picked[t.key].length) parts.push({ type: t.key, obs: picked[t.key] });
+      });
+      return parts;
+    }
+
     function updateHint() {
-      var n = picked[active].length;
-      hint.textContent = n
-        ? dimTypeName(active) + '：已选 ' + n + ' 项，点击「确 认」回到数据选择'
-        : '维度可不选，不选默认 FII；确认以当前维度类型下的勾选为准';
+      var parts = pickedParts();
+      if (parts.length) {
+        hint.textContent = '已选：' + dimSum({ parts: parts }) + '（共 ' + dimPartsCount(parts) + ' 个对象）';
+      } else {
+        // hint.textContent = '跨维度勾选：可同时选多个维度的对象（含 FII，不互斥）；全部不选＝默认 FII';
+      }
       hint.classList.remove('warn');
     }
 
-    /* 多选行（四维度共用，复用 ecw-kbfile 行＋ecw-kchk 勾选样式）：
-     * meta＝左侧徽标（法人代码），note＝右侧灰色说明 */
-    function dimRow(label, meta, items, it, note) {
-      var row = el('div', 'ecw-kbfile' + (items.indexOf(it) >= 0 ? ' on' : ''));
+    /* 跨维度已选对象总览区（v6 流程 C 第 8-9 步）：一对象一枚 chip，按所属维度着色（FII 灰 /
+     * 分会蓝 / 法人绿 / 策进组橙），跨页签可见、随勾选实时刷新；chip ✕ 单独移除并联动
+     * 行勾选与页签角标。空态方案取舍：显示占位提示而非隐藏（稳定布局＋提示默认口径）——原型口径 */
+    function renderChips() {
+      var parts = pickedParts();
+      chipsH.innerHTML = '已选对象 <i>' + dimPartsCount(parts) + '</i>（跨页签可见，点 ✕ 移除单个）';
+      chipsBox.innerHTML = '';
+      if (!parts.length) {
+        chipsBox.appendChild(el('span', 'ecw-dimselnone', '尚未选择对象；全部不选＝默认 FII'));
+        return;
+      }
+      parts.forEach(function (p) {
+        p.obs.forEach(function (it) {
+          var name = p.type === 'fii' ? 'FII（整体）' : dimObjLabel(p.type, it);
+          var txt = p.type === 'fii' ? name : dimShort(p.type) + ' · ' + name;
+          var chip = el('span', 'ecw-dimchip ecw-dimchip-' + p.type);
+          chip.title = txt;
+          chip.appendChild(el('span', 'ecw-dimchipnm', escapeHtml(txt)));
+          var x = el('i', null, '✕');                  /* chip ✕＝单独移除该对象（第 9 步） */
+          x.title = '移除「' + txt + '」';
+          x.onclick = (function (type, item) {         /* 创建处直接绑 onclick */
+            return function () {
+              var arr = picked[type];
+              var idx = arr.indexOf(item);
+              if (idx >= 0) arr.splice(idx, 1);
+              renderTabs();                            /* 页签角标数字减一 */
+              if (type === active) renderBody();       /* 该对象所在页签正打开时，行同步取消选中 */
+              renderChips();
+              updateHint();
+            };
+          })(p.type, it);
+          chip.appendChild(x);
+          chipsBox.appendChild(chip);
+        });
+      });
+    }
+
+    /* 多选行（四维度共用，复用主选择弹窗 ecw-kfile 行＋ecw-kchk 勾选样式）：
+     * v6 修正：行类名此前误写为 ecw-kbfile（无任何样式）——现用 ecw-kfile，已勾选行获得
+     * 与主选择弹窗一致的着色选中态（高亮底色＋✓ 勾选标记，流程 C 第 7 步）；
+     * type＝所属维度，meta＝左侧徽标（法人代码），note＝右侧灰色说明 */
+    function dimRow(type, label, meta, items, it, note) {
+      var row = el('div', 'ecw-kfile' + (items.indexOf(it) >= 0 ? ' on' : ''));
       row.innerHTML = '<span class="ecw-kchk"></span>' +
         (meta ? '<span class="ecw-mcode" style="flex-shrink:0">' + escapeHtml(meta) + '</span>' : '') +
         '<span class="ecw-kfnm" title="' + escapeHtml(label) + '">' + escapeHtml(label) + '</span>' +
@@ -2039,8 +2198,11 @@
       row.onclick = function () {
         var idx = items.indexOf(it);
         if (idx >= 0) { items.splice(idx, 1); row.classList.remove('on'); }
+        /* 所有选择不互斥（v6 9/7 用户拍板）：勾任何对象（含 FII）都只改自身状态，
+         * 无取消/清空其他勾选的联动 */
         else { items.push(it); row.classList.add('on'); }
-        renderTabs();                     /* 同步 tab 上的已选数量角标 */
+        renderTabs();                                 /* 同步各页签的已选数量角标 */
+        renderChips();                                /* 同步已选对象总览区（跨页签可见） */
         updateHint();
       };
       return row;
@@ -2053,7 +2215,7 @@
           escapeHtml(t.name) + (picked[t.key].length ? '<i>' + picked[t.key].length + '</i>' : ''));
         tab.onclick = function () {
           if (active === t.key) return;
-          active = t.key;
+          active = t.key;                    /* 页签仅切换浏览，各维度勾选各自保留（跨维度勾选） */
           renderTabs();
           renderBody();
           updateHint();
@@ -2064,29 +2226,29 @@
 
     function renderBody() {
       body.innerHTML = '';
-      if (active === 'fii') {                       /* 仅 1 个选项「FII」（流程 C 第 3 步） */
-        tip.textContent = 'FII：仅 1 个选项，勾选后查询口径为 FII 整体；不勾选＝不设定维度（默认 FII）。';
-        body.appendChild(dimRow('FII', '', picked.fii, 'FII'));
+      if (active === 'fii') {                       /* 仅 1 个选项「FII」（流程 C 第 6 步）；提示不显示（用户 9/7 要求） */
+        tip.textContent = '';
+        body.appendChild(dimRow('fii', 'FII', '', picked.fii, 'FII'));
         return;
       }
-      if (active === 'branch') {                    /* 13 项扁平多选（流程 C 第 4 步） */
-        tip.textContent = '分会层级：共 ' + DIM_BRANCHES.length + ' 项，可多选（选项示例来自「分会管理」页）。';
-        DIM_BRANCHES.forEach(function (b) { body.appendChild(dimRow(b, '', picked.branch, b)); });
+      if (active === 'branch') {                    /* 13 项扁平多选（流程 C 第 3 步） */
+        // tip.textContent = '分会层级：共 ' + DIM_BRANCHES.length + ' 项，可多选；可与法人/策进组等其他维度的已选项共存（跨维度勾选；选项示例来自「分会管理」页）。';
+        DIM_BRANCHES.forEach(function (b) { body.appendChild(dimRow('branch', b, '', picked.branch, b)); });
         return;
       }
-      if (active === 'legal') {                     /* 10 项扁平多选，显示 法人代码＋法人名称（流程 C 第 5 步） */
-        tip.textContent = '法人层级：共 ' + DIM_LEGALS.length + ' 项，可多选；每项显示 法人代码＋法人名称（示例来自「法人管理」页）。';
-        DIM_LEGALS.forEach(function (l) { body.appendChild(dimRow(l.name, l.code, picked.legal, l)); });
+      if (active === 'legal') {                     /* 10 项扁平多选，显示 法人代码＋法人名称（流程 C 第 4 步） */
+        // tip.textContent = '法人层级：共 ' + DIM_LEGALS.length + ' 项，可多选，每项显示 法人代码＋法人名称；可与分会/策进组等其他维度的已选项共存（示例来自「法人管理」页）。';
+        DIM_LEGALS.forEach(function (l) { body.appendChild(dimRow('legal', l.name, l.code, picked.legal, l)); });
         return;
       }
-      /* 策进组层级：两级 —— 可只勾一级策进组（＝覆盖整组），也可勾二级组织；组内可多选（流程 C 第 6 步） */
-      tip.textContent = '策进组层级：可直接勾选一级策进组（＝覆盖该组、不限定二级组织），也可勾选其下二级组织；可多选（示例来自「策进组管理」页）。';
+      /* 策进组层级：两级 —— 可只勾一级策进组（＝覆盖整组，计 1 个对象），也可勾二级组织；可多选（流程 C 第 5 步） */
+      // tip.textContent = '策进组层级：可直接勾选一级策进组（＝覆盖该组、不限定二级组织，计 1 个对象），也可勾选其下二级组织；可与分会/法人等其他维度的已选项共存（示例来自「策进组管理」页）。';
       DIM_CPA.forEach(function (g) {
         var grp = el('div', 'ecw-dimgroup');
-        grp.appendChild(dimRow(g.name, '', picked.cpa, g.name, '勾选＝覆盖整组'));
+        grp.appendChild(dimRow('cpa', g.name, '', picked.cpa, g.name, '勾选＝覆盖整组'));
         var kids = el('div', 'ecw-dimkids');
         g.kids.forEach(function (k) {
-          var r = dimRow(k, '', picked.cpa, k);
+          var r = dimRow('cpa', k, '', picked.cpa, k);
           r.style.paddingLeft = '34px';
           kids.appendChild(r);
         });
@@ -2097,13 +2259,16 @@
 
     renderTabs();
     renderBody();
+    renderChips();
     updateHint();
 
     dlg.querySelector('.ecw-btn.ecw-solid').onclick = function () {
-      var items = picked[active];
+      var parts = pickedParts();                    /* 非空维度各自成段：{parts:[{type,obs:[…]}]} */
       close();
-      /* 当前类型未勾选任何项＝不设定维度 → 回到默认 FII（流程 C 第 7 步） */
-      onOk(items.length ? { type: active, items: items.slice() } : null);
+      /* 全部维度都未勾＝不设定维度 → 回到默认 FII（流程 C 第 7 步） */
+      onOk(parts.length ? {
+        parts: parts.map(function (p) { return { type: p.type, obs: p.obs.slice() }; })
+      } : null);
     };
   }
 
@@ -2115,13 +2280,14 @@
   };
 
   /* 数据选择弹窗：五层下钻 + 每层子树搜索 + 指标多选 + 已选区逐指标配置年份/维度
-   * （形态待确认，对齐知识库选择弹窗；年份与维度在各已选指标条目内 —— REQ v4 流程 A 第 10-12 步） */
+   * （形态待确认，对齐知识库选择弹窗；年份与维度在各已选指标条目内 —— REQ v6 流程 A 第 10-12 步） */
   function openDataPicker() {
     var lib = null;        /* 已选指标库（第 1 层，未选时不能进下层） */
     var path = [];         /* 已选 维度/主题/议题 节点（第 2-4 层） */
     var kw = '';           /* 搜索关键词（仅匹配指标名称，不作用于年份/维度选项 —— 流程 B 第 5 步） */
-    var sel = {};          /* 已选指标条目：指标代码 → {ind, year, dim}（多选，可跨层级累计）；
-                             year/dim 为该指标各自的配置，null＝未选，默认 当年/FII —— FP-6/FP-7 */
+    var sel = {};          /* 已选指标条目：指标代码 → {ind, year, dim}（指标可多选、可跨层级挑选）；
+                             year＝该指标各自的年份；dim＝该指标各自的跨维度勾选 {parts:[…]} 或 null
+                             （null＝未选，默认 当年/FII —— FP-6/FP-7；条目间互相独立） */
 
     var mask = el('div', 'ecw-kbmask');
     var dlg = el('div', 'ecw-dsdlg');
@@ -2188,7 +2354,7 @@
 
     /* 指标行（列表与搜索结果共用）：仅显示 指标代码 + 指标名称，可勾选 */
     function indRow(ind) {
-      var row = el('div', 'ecw-kbfile' + (sel[ind.code] ? ' on' : ''));
+      var row = el('div', 'ecw-kfile' + (sel[ind.code] ? ' on' : ''));  /* v6 修正类名（原误写 ecw-kbfile 无样式），勾选行获得着色选中态 */
       row.innerHTML = '<span class="ecw-kchk"></span>' +
         '<span class="ecw-mcode" style="flex-shrink:0">' + escapeHtml(ind.code) + '</span>' +
         '<span class="ecw-kfnm" title="' + escapeHtml(ind.name) + '">' + escapeHtml(ind.name) + '</span>';
@@ -2216,7 +2382,7 @@
         var hits = all.filter(function (i) { return i.name.indexOf(kw) >= 0; });
         list.appendChild(el('div', 'ecw-dstip',
           '搜索范围：「' + escapeHtml(scopeLabel()) + '」子树共 ' + all.length +
-          ' 个指标，名称命中 <b>' + hits.length + '</b> 个（仅匹配指标名称，可跨下级直达）'));
+          ' 个指标，名称命中 <b>' + hits.length));
         if (!hits.length) {
           list.appendChild(el('div', 'ecw-dsempty', '暂无匹配指标'));   /* 空态表现待确认 */
           return;
@@ -2246,7 +2412,7 @@
         codes.length ? '已选指标（' + codes.length + '）· 年份与维度按指标单独配置：'
                      : '已选指标（0）：暂未选择，勾选指标后提交'));
       codes.forEach(function (c) { selBox.appendChild(entryBox(c)); });
-      hint.textContent = '未配置的指标按默认（年份＝当年 ' + DS_CUR_YEAR + ' · 维度＝FII）提交；可跨层级多选';
+      // hint.textContent = '未配置的指标按默认（年份＝当年 ' + DS_CUR_YEAR + ' · 维度＝FII）提交；可跨层级多选';
       hint.classList.remove('warn');
     }
 
@@ -2296,10 +2462,10 @@
         });
       };
       cf.appendChild(db);
-      /* ③ 维度回显：维度名＋已选对象摘要，可清除（清除后该指标回到默认 FII）—— 流程 C 第 8 步 */
+      /* ③ 维度回显：跨维度汇总（如「分会×2、法人×1、策进组×1」），可清除（清除后该指标回到默认 FII）—— 流程 C 第 8 步 */
       var echo = el('span', 'ecw-dimecho');
       if (cfg.dim) {
-        echo.appendChild(el('span', 'ecw-dimtxt', '维度：' + escapeHtml(dimBrief(cfg.dim))));
+        echo.appendChild(el('span', 'ecw-dimtxt', '维度：' + escapeHtml(dimSum(cfg.dim))));
         var clr = el('span', 'ecw-dimclear', '✕ 清除');
         clr.title = '清除该指标的维度选择，回到默认 FII';
         clr.onclick = function () { sel[code].dim = null; renderSel(); };
@@ -2342,7 +2508,8 @@
   }
 
   /* 提交后：思考动效 → 进度 → 一次性以单一表格返回全部指标 × 各自维度对象的结果
-   * （items＝[{ind, year, dim}]：每个指标携带各自年份与维度，未配置＝当年＋FII —— REQ v4 FP-4） */
+   * （items＝[{ind, year, dim}]：每个指标携带各自年份与跨维度对象 {parts:[…]}，未配置＝当年＋FII
+   *   —— REQ v6 FP-4；结果与选择一一对应：每个所选对象一行，无数值加总） */
   async function runDataQuery(items, libName) {
     var s = startSession();
     var lines = items.map(function (it) {
@@ -2360,7 +2527,7 @@
     var steps = [];
     if (libName) steps.push({ label: '定位指标库：' + libName, dur: 600 });
     steps.push({
-      label: '按各指标自身口径读取数值与数据来源（共 ' + totalRows + ' 行）', dur: 1000,
+      label: '按各指标自身口径读取数值（共 ' + totalRows + ' 行）', dur: 1000,
       sub: items.slice(0, 3).map(function (it) {
         return it.ind.code + ' ' + it.ind.name + ' · ' + (it.year || DS_CUR_YEAR) + ' · ' + dimSum(it.dim);
       })
@@ -2371,7 +2538,8 @@
     addDataResultCard(items, libName);
     addAgent({
       text: '已按本次提交**一次性**返回 ' + items.length + ' 项指标共 ' + totalRows +
-        ' 行查询结果（单一表格）✅\n\n年份与维度为**指标级配置**：未配置的指标分别按当年（**' + DS_CUR_YEAR +
+        ' 行查询结果（单一表格，可点标题行 **⛶ 全屏** 查看整表）✅\n\n年份与维度为**指标级配置**，维度支持' +
+        '**跨维度勾选**（同一指标的每个所选对象各占一行，无数值加总）；未配置的指标分别按当年（**' + DS_CUR_YEAR +
         '**）与 **FII** 处理；可继续选择指标追加查询。',
       chips: [
         { label: '继续选择指标', act: function () { openDataPicker(); } },
@@ -2380,11 +2548,48 @@
     });
   }
 
+  /* ⛶ 结果表格全屏（REQ v6 FP-8 / 流程 D）：覆盖层全屏（默认口径；是否改用浏览器原生
+   * Fullscreen API 待确认——REQ v6 待确认 7）。全屏内容＝该卡片内表格本身（克隆节点：表头＋全部行，
+   * 列集同卡片内表格＝指标代码/指标名称/年份/维度对象/数值/单位，无数据来源列），保留
+   * 「⚠ AI生成/提取」标注与表脚注记；【✕】按钮与 ESC 均可退出，退出后会话区原表格不变 */
+  function openDsFullscreen(titleText, tableEl, footText) {
+    var mask = el('div', 'ecw-dsfsmask');
+    var box = el('div', 'ecw-dsfsbox');
+    var h = el('div', 'ecw-dsfsh');
+    h.appendChild(el('span', 'ecw-dsfsname', titleText));
+    h.appendChild(el('span', 'ecw-aitag', '⚠ AI生成/提取，请人工核实'));
+    var xb = el('button', 'ecw-dsfsx', '✕');
+    xb.type = 'button';
+    xb.title = '退出全屏（ESC）';
+    h.appendChild(xb);
+    var bd = el('div', 'ecw-dsfsbody');
+    bd.appendChild(tableEl.cloneNode(true));       /* 表头＋全部行（与卡片内一致；多指标提交＝整张表） */
+    box.appendChild(h);
+    box.appendChild(bd);
+    box.appendChild(el('div', 'ecw-dsfsfoot', md(footText)));
+    mask.appendChild(box);
+    root.appendChild(mask);
+    mask.classList.add('open');
+
+    function close() {
+      document.removeEventListener('keydown', onKey);   /* 关闭时移除 ESC 监听 */
+      mask.classList.remove('open');
+      mask.remove();
+    }
+    xb.onclick = close;                                /* 创建处直接绑 onclick */
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', onKey);       /* ESC 退出（流程 D 第 4 步） */
+  }
+
   /* 数据选择 · 查询结果卡片：一个表格承载本次全部提交指标 × 各自维度对象
-   * （行＝Σ(每个指标 × 该指标所选维度对象数)，维度未选的指标按 1 个默认对象 FII 计；
-   *   年份列/维度对象列取各指标各自的配置；列＝指标代码/指标名称/年份/维度对象/数值/单位/数据来源，
-   *   为 REQ v4 默认口径 —— 列集与列序待确认），
-   * 带 AI 标注角标（对齐 addDocCard 的 ecw-aitag 用法 / 全局规则 1） */
+   * （行与选择**一一对应**：每个所选维度对象对应一条数据、无数值加总，同一指标 N 个对象＝N 行，
+   *   维度未选的指标按 1 个默认对象 FII 计；年份列/维度对象列取各指标各自的配置；
+   *   维度对象列显示「维度名 · 对象名」（拆两列方案待确认——REQ v6 待确认 2）；
+   *   **列集已定（v6 9/7 用户拍板「数据来源这一列删除」）：指标代码/指标名称/年份/维度对象/数值/
+   *   单位，共 6 列，无数据来源列（mock 的 ind.src 保留在数据中、不再渲染）；仅列序与
+   *   无数据表现待确认（REQ v6 待确认 1）），
+   * 带 AI 标注角标（对齐 addDocCard 的 ecw-aitag 用法 / 全局规则 1），
+   * 标题行提供【⛶ 全屏】按钮（FP-8）→ 覆盖层全屏查看整表（克隆同一张表，自然继承 6 列） */
   function addDataResultCard(items, libName) {
     var totalRows = 0;
     items.forEach(function (it) { totalRows += dimQueryObjs(it.dim).length; });
@@ -2392,22 +2597,24 @@
     var av = el('div', 'ecw-mavatar', agentEmoji());
     var card = el('div', 'ecw-card');
     card.style.width = '100%';
-    var title = el('div', 'ecw-cardtitle',
-      '📊 指标数据查询结果' + (libName ? '（' + escapeHtml(libName) + '）' : '') +
-      ' · ' + items.length + ' 项指标 × ' + totalRows + ' 行');
+    var titleText = '📊 指标数据查询结果' + (libName ? '（' + escapeHtml(libName) + '）' : '') +
+      ' · ' + items.length + ' 项指标 × ' + totalRows + ' 行';
+    var title = el('div', 'ecw-cardtitle', titleText);
     title.appendChild(el('span', 'ecw-aitag', '⚠ AI生成/提取，请人工核实'));
     card.appendChild(title);
     var wrap = el('div', 'ecw-tblwrap');
     var t = el('table', 'ecw-tbl');
     var thead = el('thead');
-    thead.innerHTML = '<tr><th>指标代码</th><th>指标名称</th><th>年份</th><th>维度对象</th><th>数值</th><th>单位</th><th>数据来源</th></tr>';
+    thead.innerHTML = '<tr><th>指标代码</th><th>指标名称</th><th>年份</th><th>维度对象</th><th>数值</th><th>单位</th></tr>';  /* 6 列：数据来源列已删（v6） */
     t.appendChild(thead);
     var tbody = el('tbody');
     items.forEach(function (it) {
       var yearTxt = String(it.year || DS_CUR_YEAR);
       dimQueryObjs(it.dim).forEach(function (o) {
         var tr = el('tr');
-        [it.ind.code, it.ind.name, yearTxt, o.label, dsCellVal(it.ind, it.year, o), it.ind.unit, it.ind.src]
+        /* 维度对象列＝「维度名 · 对象名」（如「分会层级 · CESBG」；拆两列方案待确认 2）；
+         * 不含 ind.src —— 数据来源列已删除（v6 9/7 用户拍板） */
+        [it.ind.code, it.ind.name, yearTxt, o.cell, dsCellVal(it.ind, it.year, o), it.ind.unit]
           .forEach(function (cell) { tr.appendChild(el('td', null, md(String(cell)))); });
         tbody.appendChild(tr);
       });
@@ -2415,8 +2622,15 @@
     t.appendChild(tbody);
     wrap.appendChild(t);
     card.appendChild(wrap);
-    card.appendChild(el('div', 'ecw-tblfoot', md(
-      '行＝各指标 × 其所选维度对象（未选维度＝1 个默认对象 FII）· 年份/维度按各指标各自配置 · **列集与列序待确认**')));
+    var footText = '行与选择一一对应：每个所选维度对象对应一条数据、无数值加总（未选维度＝1 个默认对象 FII）' +
+      '· 维度对象列＝「维度名 · 对象名」（拆两列待确认）· 年份/维度按各指标各自配置 · **列序与无数据表现待确认**';
+    card.appendChild(el('div', 'ecw-tblfoot', md(footText)));
+    /* ⛶ 全屏（FP-8 / 流程 D）：克隆卡片内表格本身——多指标提交时全屏看到的同样是整张表 */
+    var fsBtn = el('button', 'ecw-dsfsbtn', '⛶ 全屏');
+    fsBtn.type = 'button';
+    fsBtn.title = '全屏查看完整表格（✕ / ESC 退出）';
+    fsBtn.onclick = function () { openDsFullscreen(titleText, t, footText); };   /* 创建处直接绑 onclick */
+    title.appendChild(fsBtn);
     row.appendChild(av);
     row.appendChild(card);
     msgs.appendChild(row);
