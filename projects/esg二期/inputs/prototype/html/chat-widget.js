@@ -6,8 +6,8 @@
  *   · 智能问答（默认）—— 知识库检索、附件内容提取演示
  *   · 报告生成 Agent —— 固定演示流程：解析→指标匹配确认→生成报告
  *   · 指标信息采集表 Agent —— 模板解析→映射确认→按年填充→文件下载
- *   · 数据选择（REQ-01 v2）—— 指标库→维度→主题→议题→指标 五层下钻 / 子树搜索，
- *     多选提交后 AI 一次性以单一表格返回查询结果
+ *   · 数据选择（REQ-01 v4）—— 指标库→维度→主题→议题→指标 五层下钻 / 子树搜索 /
+ *     已选区逐指标配置年份与维度（FII·分会·法人·策进组 二级弹窗），多选提交后 AI 一次性以单一表格返回查询结果
  *   · 附件仅通过 📎 上传按钮提供（支持单选/多选真实文件）
  *
  * 说明：纯前端原型，所有对话为预设脚本模拟，不含后端逻辑；
@@ -410,7 +410,7 @@
     '#ecw-root .ecw-bigf{padding:10px 14px;border-top:1px solid #eef0f5;background:#fafbfe;display:flex;',
     ' align-items:center;gap:8px;flex-shrink:0}',
 
-    /* ---- 📊 数据选择弹窗（REQ-01 v2：五层下钻 + 子树搜索 + 多选提交）----
+    /* ---- 📊 数据选择弹窗（REQ-01 v4：五层下钻 + 子树搜索 + 已选区逐指标配置年份/维度）----
        界面形态（弹窗/抽屉/面板）待确认：原型按【🗂】知识库选择弹窗形态实现，
        复用其遮罩 ecw-kbmask / 指标行 ecw-kbfile+ecw-kchk / 底栏 ecw-kbfoot。 */
     '#ecw-root .ecw-dsdlg{width:470px;max-width:92vw;background:#fff;border-radius:8px;overflow:hidden;',
@@ -429,7 +429,8 @@
     '#ecw-root .ecw-dsin{flex:1;border:none;background:transparent;outline:none;font-size:12.5px;',
     ' font-family:inherit;color:#1f2329;min-width:0}',
     '#ecw-root .ecw-dsin::placeholder{color:#aab1bd}',
-    '#ecw-root .ecw-dslist{max-height:42vh;overflow-y:auto;padding:4px 8px 8px}',
+    /* v4：已选指标区改为逐指标配置条目（占高更多），压缩列表高度避免小屏下弹窗超出视口 */
+    '#ecw-root .ecw-dslist{max-height:32vh;overflow-y:auto;padding:4px 8px 8px}',
     '#ecw-root .ecw-dslist::-webkit-scrollbar{width:6px}',
     '#ecw-root .ecw-dslist::-webkit-scrollbar-thumb{background:#d8dce6;border-radius:3px}',
     '#ecw-root .ecw-dsback{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;margin:2px 0 4px;',
@@ -446,14 +447,56 @@
     '#ecw-root .ecw-dsarrow{font-size:12px;color:#c2cad8;flex-shrink:0}',
     '#ecw-root .ecw-dsempty{padding:28px 10px;text-align:center;font-size:12px;color:#aab1bd}',
     '#ecw-root .ecw-dssel{padding:8px 12px;border-top:1px solid #eef0f5;background:#fafbfe;display:flex;',
-    ' flex-wrap:wrap;gap:6px;align-items:center;max-height:108px;overflow-y:auto;flex-shrink:0}',
+    ' flex-direction:column;align-items:stretch;gap:6px;max-height:26vh;overflow-y:auto;flex-shrink:0}',
     '#ecw-root .ecw-dsselh{font-size:11.5px;color:#8a919f}',
-    '#ecw-root .ecw-dschip{display:inline-flex;align-items:center;gap:5px;background:#eef3ff;color:#133368;',
-    ' border:1px solid #c9d8ff;border-radius:999px;padding:2px 6px 2px 10px;font-size:11.5px;line-height:1.6;',
-    ' max-width:100%}',
-    '#ecw-root .ecw-dschip span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}',
-    '#ecw-root .ecw-dschip i{cursor:pointer;font-style:normal;color:#8fa3d9;font-size:10px;flex-shrink:0}',
-    '#ecw-root .ecw-dschip i:hover{color:#ff371d}',
+    /* 已选指标条目（REQ v4：每条自带年份/维度配置，条目间互相独立） */
+    '#ecw-root .ecw-dsentry{background:#fff;border:1px solid #e3e8f2;border-radius:6px;',
+    ' padding:6px 8px;display:flex;flex-direction:column;gap:5px}',
+    '#ecw-root .ecw-dsehead{display:flex;align-items:center;gap:7px;min-width:0}',
+    '#ecw-root .ecw-dsename{flex:1;min-width:0;font-size:12px;font-weight:600;color:#133368;',
+    ' white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '#ecw-root .ecw-dserm{width:18px;height:18px;flex-shrink:0;display:flex;align-items:center;',
+    ' justify-content:center;border-radius:3px;cursor:pointer;color:#98a0ad;font-size:11px}',
+    '#ecw-root .ecw-dserm:hover{color:#ff371d;background:#ffe9e5}',
+    '#ecw-root .ecw-dsecfg{display:flex;align-items:center;gap:6px;flex-wrap:wrap}',
+
+    /* ---- 🧭 指标条目内的年份/维度配置控件（REQ-01 v4，指标级）与维度二级弹窗（前缀 ecw-dim*） ---- */
+    '#ecw-root .ecw-dsyear{height:28px;border:1px solid #dfe3ee;border-radius:6px;background:#fbfcff;',
+    ' font-size:12px;color:#1f2329;font-family:inherit;padding:0 6px;outline:none;cursor:pointer;',
+    ' flex-shrink:0;transition:border-color .15s,background .15s}',
+    '#ecw-root .ecw-dsyear:focus{border-color:#3f7afa;background:#fff;box-shadow:0 0 0 2px rgba(63,122,250,.12)}',
+    '#ecw-root .ecw-dimopen{height:28px;border:1px solid #dfe3ee;border-radius:6px;background:#fbfcff;',
+    ' font-size:12px;color:#133368;font-family:inherit;padding:0 10px;cursor:pointer;flex-shrink:0;',
+    ' font-weight:500;transition:all .15s}',
+    '#ecw-root .ecw-dimopen:hover{border-color:#3f7afa;color:#3f7afa;background:#f5f8ff}',
+    '#ecw-root .ecw-dimecho{flex:1;min-width:120px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}',
+    '#ecw-root .ecw-dimtxt{font-size:11.5px;color:#133368;max-width:100%;white-space:nowrap;',
+    ' overflow:hidden;text-overflow:ellipsis}',
+    '#ecw-root .ecw-dimtxt.ecw-dimdef{color:#8a919f}',
+    '#ecw-root .ecw-dimclear{font-size:11px;color:#8a94a6;cursor:pointer;flex-shrink:0}',
+    '#ecw-root .ecw-dimclear:hover{color:#ff371d}',
+    /* 维度二级弹窗：叠在数据选择弹窗之上（z-index 高于 ecw-kbmask 的 2147483400） */
+    '#ecw-root .ecw-dimmask{position:fixed;inset:0;background:rgba(15,25,50,.42);z-index:2147483450;',
+    ' display:none;align-items:flex-start;justify-content:center;padding-top:8vh}',
+    '#ecw-root .ecw-dimmask.open{display:flex;animation:ecwIn .18s ease}',
+    '#ecw-root .ecw-dimdlg{width:470px;max-width:92vw;background:#fff;border-radius:8px;overflow:hidden;',
+    ' box-shadow:0 18px 50px rgba(19,51,104,.28);display:flex;flex-direction:column}',
+    '#ecw-root .ecw-dimtabs{display:flex;gap:6px;padding:10px 12px 0;flex-shrink:0}',
+    '#ecw-root .ecw-dimtab{flex:1;text-align:center;padding:6px 4px;border:1px solid #dfe3ec;',
+    ' border-radius:6px;background:#f2f4fa;font-size:12px;color:#5a6472;cursor:pointer;',
+    ' transition:all .15s;white-space:nowrap}',
+    '#ecw-root .ecw-dimtab:hover{color:#3f7afa}',
+    '#ecw-root .ecw-dimtab.on{background:#fff;color:#133368;font-weight:600;box-shadow:inset 0 2px 0 #3f7afa}',
+    '#ecw-root .ecw-dimtab i{font-style:normal;display:inline-block;min-width:15px;height:15px;',
+    ' line-height:15px;border-radius:8px;background:#3f7afa;color:#fff;font-size:10px;margin-left:4px;padding:0 3px}',
+    '#ecw-root .ecw-dimtip{margin:8px 12px 0;padding:6px 10px;font-size:11px;color:#8a919f;',
+    ' background:#fafbfe;border-radius:4px;line-height:1.6;flex-shrink:0}',
+    '#ecw-root .ecw-dimbody{max-height:46vh;overflow-y:auto;padding:6px 8px 10px}',
+    '#ecw-root .ecw-dimbody::-webkit-scrollbar{width:6px}',
+    '#ecw-root .ecw-dimbody::-webkit-scrollbar-thumb{background:#d8dce6;border-radius:3px}',
+    '#ecw-root .ecw-dimgroup{margin-bottom:2px}',
+    '#ecw-root .ecw-dimkids{border-left:1px dashed #e3e7f0;margin:0 0 2px 13px}',
+    '#ecw-root .ecw-dimnote{font-size:10.5px;color:#98a0ad;flex-shrink:0}',
     '#ecw-root .ecw-cardtitle .ecw-aitag{margin-left:auto}'
   ].join('');
 
@@ -497,7 +540,7 @@
     '      <div class="ecw-agentbtns">' +
     '        <button class="ecw-agentbtn" data-mode="report">报告生成</button>' +
     '        <button class="ecw-agentbtn" data-mode="collect">指标信息采集表</button>' +
-    // 📊 数据选择（REQ-01 v2）：排在【指标信息采集表】之后。
+    // 📊 数据选择（REQ-01 v4）：排在【指标信息采集表】之后。
     // 正式口径：仅管理员可见（全局规则 7，与上两个功能按钮一致）——
     // 原型 mock 无角色体系，故与既有按钮一致无条件显示；无 data-mode（不切换对话模式）。
     '        <button class="ecw-agentbtn" id="ecw-databtn">数据选择</button>' +
@@ -1764,16 +1807,22 @@
   };
 
   /* ================================================================
-   * 九·二、📊 数据选择（REQ-01 v2）：五层下钻 + 子树搜索 + 多选提交
+   * 九·二、📊 数据选择（REQ-01 v4）：五层下钻 + 子树搜索 + 已选区逐指标配置 + 多选提交
    * ------------------------------------------------------------
    * 层级：指标库（第 1 层，仅「有效」库）→ 维度 → 主题 → 议题 → 指标（第 5 层）。
-   * · 界面形态（弹窗/抽屉/面板）待确认 —— 原型按【🗂】知识库选择弹窗形态实现；
+   * 年份与维度为**指标级配置**（v4 纠正：不放在全局条件行，而在每个已选指标条目内）：
+   * 条目＝指标代码＋名称＋该指标自己的 年份下拉（可不选，默认当年＝2026）＋【维度选择】入口
+   * （四维度单选切换、维度内多选、可不选，默认 FII）＋移除（移除即丢弃其配置）。
+   * · 界面形态（弹窗/抽屉/面板）待确认 —— 原型按【🗂】知识库选择弹窗形态实现，维度为叠层二级弹窗；
    * · 【数据选择】按钮正式口径仅管理员可见（全局规则 7）—— 原型 mock 无角色体系，
    *   与【报告生成】【指标信息采集表】一致无条件显示；
    * · mock：无论选择哪个指标库，第 2-5 层均复用同一棵 环境→主题→议题→指标 树（REQ v2 拍板）；
    * · 搜索范围 = 当前停留层级节点的子树内所有指标（跨下级直达），仅匹配指标名称；
-   * · 搜索无结果的空态表现（文案/样式）待确认 —— 原型先按「暂无匹配指标」展示；
-   * · 下钻到指标层勾选提交即结束，暂不含时间维度（默认 2025 年度，后续计划扩展）。
+   *   搜索不扩展到维度选项、不覆盖年份与维度（REQ v4 流程 B 第 5 步默认口径）；
+   * · 结果表格：行＝Σ(每个指标 × 该指标所选维度对象数)（未选维度＝1 个默认对象 FII），年份列/
+   *   维度对象列取各指标各自配置，列＝指标代码/指标名称/年份/维度对象/数值/单位/数据来源
+   *   —— 列集与列序待确认（REQ v4 待确认 1）；
+   * · 搜索无结果的空态表现（文案/样式）待确认 —— 原型先按「暂无匹配指标」展示。
    * ================================================================ */
 
   /* 第 1 层 · 指标库（image1：仅显示「有效」库共 5 个，2 个「无效」旧库不显示） */
@@ -1831,6 +1880,233 @@
     return out;
   }
 
+  /* ---- REQ-01 v4：年份与维度（指标级配置）的数据与工具函数 -------------------
+   * （v3 引入、v4 纠正为指标级：年份/维度随各已选指标条目各自配置，非全局条件） */
+
+  var DS_CUR_YEAR = 2026;                                /* 当年（年份可不选，不选默认当年） */
+  var DS_YEARS = [2026, 2025, 2024, 2023, 2022, 2021];   /* mock：近六年（「近年若干年」） */
+
+  /* 维度类型（REQ v4 流程 C 第 2 步：四维度单选切换） */
+  var DIM_TYPES = [
+    { key: 'fii', name: 'FII' },
+    { key: 'branch', name: '分会层级' },
+    { key: 'legal', name: '法人层级' },
+    { key: 'cpa', name: '策进组层级' }
+  ];
+
+  /* 分会层级 · 13 项扁平单层（REQ v4 第 9.2 节，照抄 分会.png，含系统测试数据） */
+  var DIM_BRANCHES = [
+    'Angel-test', 'beck-分会', 'CESBG', 'CNSBG', 'iPEBG-iPEG', 'iPEBG-PMEG', 'SEG',
+    'TARG', 'TEST', 'TEST2', 'WTT-test', 'Xuyu-Test', 'zhushen'
+  ];
+
+  /* 法人层级 · 10 项扁平单层，每项＝法人代码＋法人名称（REQ v4 第 9.3 节，照抄 法人.png） */
+  var DIM_LEGALS = [
+    { code: 'Xuyu-test2', name: '法人2' },
+    { code: '67890', name: 'MZ测试' },
+    { code: 'A086440', name: '富联科技(晋城)有限公司' },
+    { code: '12345', name: 'JY测试' },
+    { code: 'A086582', name: '富联科技（山西）有限公司' },
+    { code: 'A084031', name: '富联精密科技公司' },
+    { code: 'A886022-1', name: '鸿佰科技股份有限公司' },
+    { code: 'A886022-2', name: '鸿佰科技股份有限公司-新竹' },
+    { code: 'A886022-3', name: '鸿佰科技股份有限公司-大园' },
+    { code: 'A086996', name: '富联裕康医疗科技(深圳)有限公司' }
+  ];
+
+  /* 策进组层级 · 两级：3 个一级策进组＋各自二级组织（REQ v4 第 9.4 节，照抄 策进组.png）。
+   * G 策进组第 10 项截图截断，按 REQ 原样记录为「G1商业道德-弊弊防治处」，
+   * 疑为「G10商业道德-弊端防治处」—— 待核实 */
+  var DIM_CPA = [
+    { name: 'E策进组', kids: ['E1气候行动', 'E2能源效率', 'E3环境保护', 'E4循环经济', 'E5绿色产品'] },
+    { name: 'S策进组', kids: ['S1劳动人权', 'S2公共发展', 'S3健康安全', 'S4化学品安全'] },
+    { name: 'G策进组', kids: [
+      'G1商业道德-审计处', 'G2公司治理', 'G3经济与税务', 'G4法务合规', 'G5风险与机遇',
+      'G6资讯安全', 'G7数智化', 'G8价值链', 'G9信披治理', 'G1商业道德-弊弊防治处'
+    ] }
+  ];
+
+  function dimTypeName(key) {
+    for (var i = 0; i < DIM_TYPES.length; i++) if (DIM_TYPES[i].key === key) return DIM_TYPES[i].name;
+    return 'FII';
+  }
+  function dsIsCpaGroup(name) {
+    for (var i = 0; i < DIM_CPA.length; i++) if (DIM_CPA[i].name === name) return true;
+    return false;
+  }
+  /* 维度对象展示名：法人＝法人代码＋法人名称；只勾一级策进组＝「XX策进组（整组）」 */
+  function dimObjLabel(type, it) {
+    if (type === 'legal') return it.code + ' ' + it.name;
+    if (type === 'cpa' && dsIsCpaGroup(it)) return String(it) + '（整组）';
+    return String(it);
+  }
+  /* 维度摘要（紧凑，用户消息/进度用）：如「分会层级×3」；未选＝FII（默认） */
+  function dimSum(dim) {
+    if (!dim) return 'FII（默认）';
+    if (dim.type === 'fii') return 'FII';
+    return dimTypeName(dim.type) + '×' + dim.items.length;
+  }
+  /* 维度摘要（带对象名，条目内回显用）：如「分会层级×3（CESBG、SEG…）」 */
+  function dimBrief(dim) {
+    if (!dim) return 'FII（默认）';
+    if (dim.type === 'fii') return 'FII';
+    var labels = dim.items.slice(0, 2).map(function (it) { return dimObjLabel(dim.type, it); }).join('、');
+    return dimSum(dim) + (labels ? '（' + labels + (dim.items.length > 2 ? '…' : '') + '）' : '');
+  }
+
+  /* 维度对象分担系数（mock）：FII＝1（整体口径）；各组织对象按标签稳定散列出 0.20~1.05 的占比，
+   * 使「指标 × 维度对象」各行的 mock 数值合理互异且可复现 */
+  function dsObjFactor(seed) {
+    var h = 0;
+    for (var i = 0; i < seed.length; i++) h = (h * 33 + seed.charCodeAt(i)) % 100003;
+    return 0.2 + (h % 100) / 100 * 0.85;
+  }
+  function dsParseNum(v) {
+    var s = String(v).replace(/,/g, '');
+    if (!/^\d+(\.\d+)?$/.test(s)) return null;
+    return { num: parseFloat(s), dec: s.indexOf('.') >= 0 ? s.length - s.indexOf('.') - 1 : 0 };
+  }
+  function dsFmtNum(num, dec) {
+    return dec ? num.toFixed(dec)
+      : Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  /* 结果单元格数值（mock）：以既有数值为当年整体口径基准，按年份（往年约 +3.5%/年，呈现总量
+   * 逐年下降趋势）与维度对象占比微调；文本型数值（政策/认证类指标）原样返回 */
+  function dsCellVal(ind, year, obj) {
+    var p = dsParseNum(ind.val);
+    if (!p) return ind.val;
+    var off = DS_CUR_YEAR - (year || DS_CUR_YEAR);
+    return dsFmtNum(p.num * (1 + 0.035 * off) * obj.f, p.dec);
+  }
+  /* 查询口径的维度对象列表：未选维度（或维度＝FII）＝1 个默认对象 FII；否则展开为已选对象 */
+  function dimQueryObjs(dim) {
+    if (!dim || dim.type === 'fii') return [{ label: 'FII', f: 1 }];
+    return dim.items.map(function (it) {
+      var label = dimObjLabel(dim.type, it);
+      return { label: label, f: dsObjFactor(dim.type + '|' + label) };
+    });
+  }
+
+  /* 维度选择二级弹窗（REQ v4 流程 C）：叠在数据选择弹窗之上（遮罩 z-index 更高），风格对齐既有弹窗。
+   * 入口与落点＝**当前配置的指标条目**：cur 传入该条目已设维度，onOk(dim) 由条目回调把结果只写回该条目，
+   * 其他条目不受影响。
+   * 四维度单选切换（tab）＋维度内多选；可不选（确认时当前类型未勾选任何项＝不设定维度，默认 FII）。
+   * 不提供搜索 —— 搜索仅作用于指标选择，维度弹窗是否需要搜索待确认（REQ v4 待确认 2）。
+   * cur：当前条目已设维度（null＝未选）；onOk(dim)：确认后回调（null＝清除为默认 FII） */
+  function openDimPicker(cur, onOk) {
+    var active = cur ? cur.type : 'fii';                       /* 当前维度类型（tab 单选切换） */
+    var picked = { fii: [], branch: [], legal: [], cpa: [] };  /* 各类型的临时勾选 */
+    if (cur && picked[cur.type] && cur.items) picked[cur.type] = cur.items.slice();
+
+    var mask = el('div', 'ecw-dimmask');
+    var dlg = el('div', 'ecw-dimdlg');
+    dlg.innerHTML =
+      '<div class="ecw-kbh">🧭 维度选择 · 圈定查询对象<button title="关闭">✕</button></div>' +
+      '<div class="ecw-dimtabs"></div>' +
+      '<div class="ecw-dimtip"></div>' +
+      '<div class="ecw-dimbody"></div>' +
+      '<div class="ecw-kbfoot"><span class="ecw-kbhint">维度可不选，不选默认 FII；确认以当前维度类型下的勾选为准</span>' +
+      '<button class="ecw-btn">取消</button><button class="ecw-btn ecw-solid">确 认</button></div>';
+    mask.appendChild(dlg);
+    root.appendChild(mask);
+    mask.classList.add('open');
+
+    var tabsBox = dlg.querySelector('.ecw-dimtabs');
+    var tip = dlg.querySelector('.ecw-dimtip');
+    var body = dlg.querySelector('.ecw-dimbody');
+    var hint = dlg.querySelector('.ecw-kbhint');
+
+    function close() { mask.classList.remove('open'); mask.remove(); }
+    dlg.querySelector('.ecw-kbh button').onclick = close;
+    dlg.querySelector('.ecw-kbfoot .ecw-btn').onclick = close;
+
+    function updateHint() {
+      var n = picked[active].length;
+      hint.textContent = n
+        ? dimTypeName(active) + '：已选 ' + n + ' 项，点击「确 认」回到数据选择'
+        : '维度可不选，不选默认 FII；确认以当前维度类型下的勾选为准';
+      hint.classList.remove('warn');
+    }
+
+    /* 多选行（四维度共用，复用 ecw-kbfile 行＋ecw-kchk 勾选样式）：
+     * meta＝左侧徽标（法人代码），note＝右侧灰色说明 */
+    function dimRow(label, meta, items, it, note) {
+      var row = el('div', 'ecw-kbfile' + (items.indexOf(it) >= 0 ? ' on' : ''));
+      row.innerHTML = '<span class="ecw-kchk"></span>' +
+        (meta ? '<span class="ecw-mcode" style="flex-shrink:0">' + escapeHtml(meta) + '</span>' : '') +
+        '<span class="ecw-kfnm" title="' + escapeHtml(label) + '">' + escapeHtml(label) + '</span>' +
+        (note ? '<span class="ecw-dimnote">' + escapeHtml(note) + '</span>' : '');
+      row.onclick = function () {
+        var idx = items.indexOf(it);
+        if (idx >= 0) { items.splice(idx, 1); row.classList.remove('on'); }
+        else { items.push(it); row.classList.add('on'); }
+        renderTabs();                     /* 同步 tab 上的已选数量角标 */
+        updateHint();
+      };
+      return row;
+    }
+
+    function renderTabs() {
+      tabsBox.innerHTML = '';
+      DIM_TYPES.forEach(function (t) {
+        var tab = el('div', 'ecw-dimtab' + (t.key === active ? ' on' : ''),
+          escapeHtml(t.name) + (picked[t.key].length ? '<i>' + picked[t.key].length + '</i>' : ''));
+        tab.onclick = function () {
+          if (active === t.key) return;
+          active = t.key;
+          renderTabs();
+          renderBody();
+          updateHint();
+        };
+        tabsBox.appendChild(tab);
+      });
+    }
+
+    function renderBody() {
+      body.innerHTML = '';
+      if (active === 'fii') {                       /* 仅 1 个选项「FII」（流程 C 第 3 步） */
+        tip.textContent = 'FII：仅 1 个选项，勾选后查询口径为 FII 整体；不勾选＝不设定维度（默认 FII）。';
+        body.appendChild(dimRow('FII', '', picked.fii, 'FII'));
+        return;
+      }
+      if (active === 'branch') {                    /* 13 项扁平多选（流程 C 第 4 步） */
+        tip.textContent = '分会层级：共 ' + DIM_BRANCHES.length + ' 项，可多选（选项示例来自「分会管理」页）。';
+        DIM_BRANCHES.forEach(function (b) { body.appendChild(dimRow(b, '', picked.branch, b)); });
+        return;
+      }
+      if (active === 'legal') {                     /* 10 项扁平多选，显示 法人代码＋法人名称（流程 C 第 5 步） */
+        tip.textContent = '法人层级：共 ' + DIM_LEGALS.length + ' 项，可多选；每项显示 法人代码＋法人名称（示例来自「法人管理」页）。';
+        DIM_LEGALS.forEach(function (l) { body.appendChild(dimRow(l.name, l.code, picked.legal, l)); });
+        return;
+      }
+      /* 策进组层级：两级 —— 可只勾一级策进组（＝覆盖整组），也可勾二级组织；组内可多选（流程 C 第 6 步） */
+      tip.textContent = '策进组层级：可直接勾选一级策进组（＝覆盖该组、不限定二级组织），也可勾选其下二级组织；可多选（示例来自「策进组管理」页）。';
+      DIM_CPA.forEach(function (g) {
+        var grp = el('div', 'ecw-dimgroup');
+        grp.appendChild(dimRow(g.name, '', picked.cpa, g.name, '勾选＝覆盖整组'));
+        var kids = el('div', 'ecw-dimkids');
+        g.kids.forEach(function (k) {
+          var r = dimRow(k, '', picked.cpa, k);
+          r.style.paddingLeft = '34px';
+          kids.appendChild(r);
+        });
+        grp.appendChild(kids);
+        body.appendChild(grp);
+      });
+    }
+
+    renderTabs();
+    renderBody();
+    updateHint();
+
+    dlg.querySelector('.ecw-btn.ecw-solid').onclick = function () {
+      var items = picked[active];
+      close();
+      /* 当前类型未勾选任何项＝不设定维度 → 回到默认 FII（流程 C 第 7 步） */
+      onOk(items.length ? { type: active, items: items.slice() } : null);
+    };
+  }
+
   /* 【数据选择】按钮（输入区上方按钮区，排在【指标信息采集表】之后）：
    * 点击打开选择弹窗，提交后由 AI 一次性返回表格结果 */
   $('ecw-databtn').onclick = function () {
@@ -1838,17 +2114,19 @@
     openDataPicker();
   };
 
-  /* 数据选择弹窗：五层下钻 + 每层子树搜索 + 指标多选（形态待确认，对齐知识库选择弹窗） */
+  /* 数据选择弹窗：五层下钻 + 每层子树搜索 + 指标多选 + 已选区逐指标配置年份/维度
+   * （形态待确认，对齐知识库选择弹窗；年份与维度在各已选指标条目内 —— REQ v4 流程 A 第 10-12 步） */
   function openDataPicker() {
     var lib = null;        /* 已选指标库（第 1 层，未选时不能进下层） */
     var path = [];         /* 已选 维度/主题/议题 节点（第 2-4 层） */
-    var kw = '';           /* 搜索关键词（仅匹配指标名称） */
-    var sel = {};          /* 已选指标：指标代码 → 指标对象（多选，可跨层级累计） */
+    var kw = '';           /* 搜索关键词（仅匹配指标名称，不作用于年份/维度选项 —— 流程 B 第 5 步） */
+    var sel = {};          /* 已选指标条目：指标代码 → {ind, year, dim}（多选，可跨层级累计）；
+                             year/dim 为该指标各自的配置，null＝未选，默认 当年/FII —— FP-6/FP-7 */
 
     var mask = el('div', 'ecw-kbmask');
     var dlg = el('div', 'ecw-dsdlg');
     dlg.innerHTML =
-      '<div class="ecw-kbh">📊 数据选择 · 按层级选择指标<button title="关闭">✕</button></div>' +
+      '<div class="ecw-kbh">📊 数据选择 · 选择指标并配置年份/维度<button title="关闭">✕</button></div>' +
       '<div class="ecw-dscrumb"></div>' +
       '<div class="ecw-dssearch"><i>🔍</i><input class="ecw-dsin"></div>' +
       '<div class="ecw-dslist"></div>' +
@@ -1916,7 +2194,7 @@
         '<span class="ecw-kfnm" title="' + escapeHtml(ind.name) + '">' + escapeHtml(ind.name) + '</span>';
       row.onclick = function () {
         if (sel[ind.code]) { delete sel[ind.code]; row.classList.remove('on'); }
-        else { sel[ind.code] = ind; row.classList.add('on'); }
+        else { sel[ind.code] = { ind: ind, year: null, dim: null }; row.classList.add('on'); }
         renderSel();
       };
       return row;
@@ -1947,9 +2225,6 @@
         return;
       }
       if (!lib) {                                  /* 第 1 层 · 指标库（仅显示有效库） */
-        list.appendChild(el('div', 'ecw-dstip',
-          '第 1 层 · 指标库：仅显示「有效」指标库（共 ' + DS_LIBS.length +
-          ' 个）；原型 mock：任一指标库均共用同一棵演示树'));
         DS_LIBS.forEach(function (name) { list.appendChild(navRow({ name: name }, true)); });
         return;
       }
@@ -1962,25 +2237,79 @@
       }
     }
 
+    /* 已选指标区（REQ v4）：每个已选指标为一条可配置条目 —— 指标代码＋名称＋该条目自己的
+     * 年份下拉＋【维度选择】入口＋维度回显（可清除）＋移除；条目间配置互相独立 */
     function renderSel() {
       selBox.innerHTML = '';
       var codes = Object.keys(sel);
       selBox.appendChild(el('span', 'ecw-dsselh',
-        codes.length ? '已选指标（' + codes.length + '）：' : '已选指标（0）：暂未选择，勾选指标后提交'));
-      codes.forEach(function (c) {
-        var chip = el('span', 'ecw-dschip',
-          '<span title="' + escapeHtml(sel[c].name) + '">' + escapeHtml(sel[c].name) + '</span><i title="移除">✕</i>');
-        chip.querySelector('i').onclick = function () {
-          delete sel[c];
-          renderSel();
-          renderList();                            /* 同步列表/搜索结果行的勾选状态 */
-        };
-        selBox.appendChild(chip);
-      });
-      hint.textContent = codes.length
-        ? '已选 ' + codes.length + ' 项指标（可跨层级多选），点击「提交查询」一次性返回'
-        : '未选指标库时不能选择下层内容；可逐层下钻，或搜索当前子树内的指标名称';
+        codes.length ? '已选指标（' + codes.length + '）· 年份与维度按指标单独配置：'
+                     : '已选指标（0）：暂未选择，勾选指标后提交'));
+      codes.forEach(function (c) { selBox.appendChild(entryBox(c)); });
+      hint.textContent = '未配置的指标按默认（年份＝当年 ' + DS_CUR_YEAR + ' · 维度＝FII）提交；可跨层级多选';
       hint.classList.remove('warn');
+    }
+
+    /* 单条已选指标条目（REQ v4 流程 A 第 10-12 步）：
+     * 行 1＝指标代码＋名称＋移除；行 2＝年份下拉＋【维度选择】＋维度回显。
+     * 所有子控件均在创建处直接绑 onclick / onchange。 */
+    function entryBox(code) {
+      var cfg = sel[code];                          /* {ind, year, dim} */
+      var box = el('div', 'ecw-dsentry');
+
+      var head = el('div', 'ecw-dsehead');
+      head.innerHTML =
+        '<span class="ecw-mcode" style="flex-shrink:0">' + escapeHtml(cfg.ind.code) + '</span>' +
+        '<span class="ecw-dsename" title="' + escapeHtml(cfg.ind.name) + '">' + escapeHtml(cfg.ind.name) + '</span>';
+      var rm = el('span', 'ecw-dserm', '✕');
+      rm.title = '移除该指标（其年份/维度配置一并丢弃）';
+      rm.onclick = function () {                    /* 移除＝丢弃该条目全部配置（REQ v4 边界） */
+        delete sel[code];
+        renderSel();
+        renderList();                               /* 同步列表/搜索结果行的勾选状态 */
+      };
+      head.appendChild(rm);
+      box.appendChild(head);
+
+      var cf = el('div', 'ecw-dsecfg');
+      /* ① 年份下拉（指标级 FP-6）：可不选（首项），不选＝默认当年 */
+      var ys = el('select', 'ecw-dsyear');
+      ys.title = '年份可不选，不选默认当年（' + DS_CUR_YEAR + '）';
+      var ph = el('option', null, '年份 · 默认 ' + DS_CUR_YEAR);
+      ph.value = '';
+      ys.appendChild(ph);
+      DS_YEARS.forEach(function (y) {
+        var o = el('option', null, y + ' 年');
+        o.value = String(y);
+        ys.appendChild(o);
+      });
+      ys.value = cfg.year ? String(cfg.year) : '';
+      ys.onchange = function () { sel[code].year = ys.value ? parseInt(ys.value, 10) : null; };
+      cf.appendChild(ys);
+      /* ② 【维度选择】入口（指标级 FP-7）：二级弹窗的确认结果只落到当前条目，其他条目不受影响 */
+      var db = el('button', 'ecw-dimopen', '🧭 维度选择');
+      db.type = 'button';
+      db.onclick = function () {
+        openDimPicker(sel[code].dim, function (d) {
+          sel[code].dim = d;
+          renderSel();
+        });
+      };
+      cf.appendChild(db);
+      /* ③ 维度回显：维度名＋已选对象摘要，可清除（清除后该指标回到默认 FII）—— 流程 C 第 8 步 */
+      var echo = el('span', 'ecw-dimecho');
+      if (cfg.dim) {
+        echo.appendChild(el('span', 'ecw-dimtxt', '维度：' + escapeHtml(dimBrief(cfg.dim))));
+        var clr = el('span', 'ecw-dimclear', '✕ 清除');
+        clr.title = '清除该指标的维度选择，回到默认 FII';
+        clr.onclick = function () { sel[code].dim = null; renderSel(); };
+        echo.appendChild(clr);
+      } else {
+        echo.appendChild(el('span', 'ecw-dimtxt ecw-dimdef', '维度：FII（默认）'));
+      }
+      cf.appendChild(echo);
+      box.appendChild(cf);
+      return box;
     }
 
     function renderAll() {
@@ -2005,35 +2334,45 @@
         hint.classList.add('warn');
         return;
       }
-      var picked = codes.map(function (c) { return sel[c]; });
+      var picked = codes.map(function (c) { return sel[c]; });   /* [{ind, year, dim}] 逐指标配置 */
       close();
       runDataQuery(picked, lib);
     };
     renderAll();
   }
 
-  /* 提交后：思考动效 → 进度 → 一次性以单一表格返回本次全部提交指标的结果 */
-  async function runDataQuery(inds, libName) {
+  /* 提交后：思考动效 → 进度 → 一次性以单一表格返回全部指标 × 各自维度对象的结果
+   * （items＝[{ind, year, dim}]：每个指标携带各自年份与维度，未配置＝当年＋FII —— REQ v4 FP-4） */
+  async function runDataQuery(items, libName) {
     var s = startSession();
-    var names = inds.map(function (i) { return i.name; }).join('、');
+    var lines = items.map(function (it) {
+      return '· ' + it.ind.name + '：年份 ' + (it.year || DS_CUR_YEAR) +
+        (it.year ? '' : '（默认）') + ' · ' + dimSum(it.dim);
+    });
     addUser('📊 数据选择' + (libName ? '（' + libName + '）' : '') +
-      '：已提交 ' + inds.length + ' 项指标 —— ' + names);
+      '：已提交 ' + items.length + ' 项指标（年份/维度各自配置）\n' + lines.join('\n'));
     showTyping('正在查询指标数据…');
     await sleep(900);
     if (stale(s)) return;
     hideTyping();
+    var totalRows = 0;
+    items.forEach(function (it) { totalRows += dimQueryObjs(it.dim).length; });
     var steps = [];
     if (libName) steps.push({ label: '定位指标库：' + libName, dur: 600 });
     steps.push({
-      label: '逐项读取 ' + inds.length + ' 个指标的数值与数据来源', dur: 1000,
-      sub: inds.slice(0, 3).map(function (i) { return i.code + ' ' + i.name; })
+      label: '按各指标自身口径读取数值与数据来源（共 ' + totalRows + ' 行）', dur: 1000,
+      sub: items.slice(0, 3).map(function (it) {
+        return it.ind.code + ' ' + it.ind.name + ' · ' + (it.year || DS_CUR_YEAR) + ' · ' + dimSum(it.dim);
+      })
     });
     await addProgress('数据选择 · 查询平台指标数据', steps);
     if (stale(s)) return;
     endSession(s);
-    addDataResultCard(inds, libName);
+    addDataResultCard(items, libName);
     addAgent({
-      text: '已按本次提交**一次性**返回 ' + inds.length + ' 项指标的查询结果（单一表格）✅\n\n可继续选择指标追加查询；时间维度（年份/报告期）选择为后续计划扩展，当前默认 **2025 年度**。',
+      text: '已按本次提交**一次性**返回 ' + items.length + ' 项指标共 ' + totalRows +
+        ' 行查询结果（单一表格）✅\n\n年份与维度为**指标级配置**：未配置的指标分别按当年（**' + DS_CUR_YEAR +
+        '**）与 **FII** 处理；可继续选择指标追加查询。',
       chips: [
         { label: '继续选择指标', act: function () { openDataPicker(); } },
         { label: '⟳ 开启新对话', act: newChat }
@@ -2041,35 +2380,43 @@
     });
   }
 
-  /* 数据选择 · 查询结果卡片：一个表格承载本次全部提交指标（列构成为 mock，待确认），
+  /* 数据选择 · 查询结果卡片：一个表格承载本次全部提交指标 × 各自维度对象
+   * （行＝Σ(每个指标 × 该指标所选维度对象数)，维度未选的指标按 1 个默认对象 FII 计；
+   *   年份列/维度对象列取各指标各自的配置；列＝指标代码/指标名称/年份/维度对象/数值/单位/数据来源，
+   *   为 REQ v4 默认口径 —— 列集与列序待确认），
    * 带 AI 标注角标（对齐 addDocCard 的 ecw-aitag 用法 / 全局规则 1） */
-  function addDataResultCard(inds, libName) {
+  function addDataResultCard(items, libName) {
+    var totalRows = 0;
+    items.forEach(function (it) { totalRows += dimQueryObjs(it.dim).length; });
     var row = el('div', 'ecw-row ecw-agent');
     var av = el('div', 'ecw-mavatar', agentEmoji());
     var card = el('div', 'ecw-card');
     card.style.width = '100%';
     var title = el('div', 'ecw-cardtitle',
-      '📊 指标数据查询结果' + (libName ? '（' + escapeHtml(libName) + '）' : '') + ' · 共 ' + inds.length + ' 项');
+      '📊 指标数据查询结果' + (libName ? '（' + escapeHtml(libName) + '）' : '') +
+      ' · ' + items.length + ' 项指标 × ' + totalRows + ' 行');
     title.appendChild(el('span', 'ecw-aitag', '⚠ AI生成/提取，请人工核实'));
     card.appendChild(title);
     var wrap = el('div', 'ecw-tblwrap');
     var t = el('table', 'ecw-tbl');
     var thead = el('thead');
-    thead.innerHTML = '<tr><th>指标代码</th><th>指标名称</th><th>数值</th><th>单位</th><th>报告期</th><th>数据来源</th></tr>';
+    thead.innerHTML = '<tr><th>指标代码</th><th>指标名称</th><th>年份</th><th>维度对象</th><th>数值</th><th>单位</th><th>数据来源</th></tr>';
     t.appendChild(thead);
     var tbody = el('tbody');
-    inds.forEach(function (i) {
-      var tr = el('tr');
-      [i.code, i.name, i.val, i.unit, '2025年度', i.src].forEach(function (cell) {
-        tr.appendChild(el('td', null, md(String(cell))));
+    items.forEach(function (it) {
+      var yearTxt = String(it.year || DS_CUR_YEAR);
+      dimQueryObjs(it.dim).forEach(function (o) {
+        var tr = el('tr');
+        [it.ind.code, it.ind.name, yearTxt, o.label, dsCellVal(it.ind, it.year, o), it.ind.unit, it.ind.src]
+          .forEach(function (cell) { tr.appendChild(el('td', null, md(String(cell)))); });
+        tbody.appendChild(tr);
       });
-      tbody.appendChild(tr);
     });
     t.appendChild(tbody);
     wrap.appendChild(t);
     card.appendChild(wrap);
-    card.appendChild(el('div', 'ecw-tblfoot',
-      '报告期默认 2025 年度（时间维度选择为后续计划扩展）· 表格列构成为原型 mock，**待确认**'));
+    card.appendChild(el('div', 'ecw-tblfoot', md(
+      '行＝各指标 × 其所选维度对象（未选维度＝1 个默认对象 FII）· 年份/维度按各指标各自配置 · **列集与列序待确认**')));
     row.appendChild(av);
     row.appendChild(card);
     msgs.appendChild(row);
