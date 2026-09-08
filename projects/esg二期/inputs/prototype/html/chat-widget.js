@@ -2622,9 +2622,9 @@
     t.appendChild(tbody);
     wrap.appendChild(t);
     card.appendChild(wrap);
-    var footText = '行与选择一一对应：每个所选维度对象对应一条数据、无数值加总（未选维度＝1 个默认对象 FII）' +
-      '· 维度对象列＝「维度名 · 对象名」单列（9/7 定稿）· 年份/维度按各指标各自配置 · 指标无数据时保留该行、数值列以"—"占位（9/7 定稿）';
-    card.appendChild(el('div', 'ecw-tblfoot', md(footText)));
+    // var footText = '行与选择一一对应：每个所选维度对象对应一条数据、无数值加总（未选维度＝1 个默认对象 FII）' +
+    //   '· 维度对象列＝「维度名 · 对象名」单列（9/7 定稿）· 年份/维度按各指标各自配置 · 指标无数据时保留该行、数值列以"—"占位（9/7 定稿）';
+    // card.appendChild(el('div', 'ecw-tblfoot', md(footText)));
     /* ⛶ 全屏（FP-8 / 流程 D）：克隆卡片内表格本身——多指标提交时全屏看到的同样是整张表 */
     var fsBtn = el('button', 'ecw-dsfsbtn', '⛶ 全屏');
     fsBtn.type = 'button';
