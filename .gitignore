@@ -11,5 +11,8 @@
 *.fdb_latexmk
 *.xdv
 
+# 公司代码仓库（独立 git，连公司 GitLab，仅拉取；禁止进入本仓库的版本管理）
+esg-ai/
+
 # Claude Code 本地配置
 .claude/settings.local.json
