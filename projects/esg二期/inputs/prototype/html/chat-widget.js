@@ -328,6 +328,28 @@
     ' transition:all .15s;font-weight:500}',
     '#ecw-root .ecw-agentbtn:hover{border-color:#3f7afa;color:#3f7afa;background:#f5f8ff}',
     '#ecw-root .ecw-agentbtn.ecw-on{background:#3f7afa;border-color:#3f7afa;color:#fff;',
+    '#ecw-root .ecw-yearmenu{position:absolute;z-index:60;width:240px;background:#fff;border:1px solid #e3e8f0;border-radius:10px;',
+    ' box-shadow:0 12px 32px rgba(15,23,42,.16),0 2px 8px rgba(15,23,42,.06);font-size:12px;overflow:hidden;',
+    ' opacity:0;transform:translateY(-6px) scale(.98);transform-origin:top left;transition:opacity .16s ease,transform .16s ease}',
+    '#ecw-root .ecw-yearmenu.open{opacity:1;transform:none}',
+    '#ecw-root .ecw-ymhead{position:relative;padding:11px 14px 9px;font-size:13px;font-weight:600;color:#1f2329;',
+    ' border-bottom:1px solid #f0f2f7}',
+    '#ecw-root .ecw-ymclose{position:absolute;right:10px;top:9px;width:20px;height:20px;line-height:20px;text-align:center;',
+    ' color:#98a0ad;cursor:pointer;border-radius:4px}',
+    '#ecw-root .ecw-ymclose:hover{color:#515a6b;background:#f2f4f8}',
+    '#ecw-root .ecw-ymbody{max-height:238px;overflow-y:auto;padding:6px}',
+    '#ecw-root .ecw-ymbody::-webkit-scrollbar{width:6px}',
+    '#ecw-root .ecw-ymbody::-webkit-scrollbar-thumb{background:#dfe3ec;border-radius:3px}',
+    '#ecw-root .ecw-ymopt{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:7px;cursor:pointer;transition:background .12s}',
+    '#ecw-root .ecw-ymopt:hover{background:#f5f8ff}',
+    '#ecw-root .ecw-ymopt.on{background:#eef4ff}',
+    '#ecw-root .ecw-ymy{font-size:13px;font-weight:600;color:#1f2329}',
+    '#ecw-root .ecw-ymopt.on .ecw-ymy{color:#2f5fd9}',
+    '#ecw-root .ecw-ymtag{font-style:normal;font-size:10px;font-weight:500;color:#0e9f6e;background:#e6f7f1;border-radius:3px;padding:1px 6px;margin-left:7px;vertical-align:1px}',
+    '#ecw-root .ecw-ymtag2{font-style:normal;font-size:10px;font-weight:500;color:#98a0ad;background:#f0f1f5;border-radius:3px;padding:1px 6px;margin-left:7px;vertical-align:1px}',
+    '#ecw-root .ecw-ymchk{color:#2f5fd9;font-weight:700;font-size:13px;opacity:0;transition:opacity .12s}',
+    '#ecw-root .ecw-ymopt.on .ecw-ymchk{opacity:1}',
+    '#ecw-root .ecw-ymfoot{padding:8px 14px;font-size:11px;color:#98a0ad;border-top:1px solid #f0f2f7;background:#fafbfe}',
     ' box-shadow:0 3px 8px rgba(63,122,250,.35)}',
     /* 统一输入框：📎/🗂 小按钮 + 无边框输入 + 发送，整体对齐在一个框内 */
     '#ecw-root .ecw-inputbox{display:flex;align-items:flex-end;gap:6px;border:1px solid #dfe3ee;border-radius:10px;',
@@ -626,6 +648,7 @@
     // 正式口径：仅管理员可见（全局规则 7，与上两个功能按钮一致）——
     // 原型 mock 无角色体系，故与既有按钮一致无条件显示；无 data-mode（不切换对话模式）。
     '        <button class="ecw-agentbtn" id="ecw-databtn">数据选择</button>' +
+    '        <button class="ecw-agentbtn" id="ecw-yearbtn" title="选择信息采集表取数年份" style="display:none">📅 年份：2025</button>' +
     '      </div>' +
     '      <div class="ecw-inputbox">' +
     '        <div class="ecw-leftbtns">' +
@@ -1052,6 +1075,8 @@
     root.querySelectorAll('.ecw-agentbtn').forEach(function (b) {
       b.classList.toggle('ecw-on', b.getAttribute('data-mode') === mode);
     });
+    var yb = $('ecw-yearbtn');                     /* 年份按钮：仅采集表模式显示（排在【数据选择】之后） */
+    if (yb) yb.style.display = mode === 'collect' ? '' : 'none';
     if (!silent) {
       if (mode === 'report') { addSystem('已切换至「报告生成」Agent'); reportIntro(); }
       else if (mode === 'collect') { addSystem('已切换至「指标信息采集表」Agent'); collectIntro(); }
@@ -1216,7 +1241,7 @@
     var thead = el('thead');
     thead.innerHTML = '<tr><th style="width:46px">#</th><th style="width:23%">附件定量指标名</th>' +
       '<th>平台对应指标名</th><th style="width:100px">平台对应指标编码</th>' +
-      '<th style="width:86px">本期指标数据（2025年）</th><th style="width:86px">上期指标数据（2024年）</th>' +
+      '<th style="width:86px">本期指标数据（' + collectYearValue() + '年）</th><th style="width:86px">上期指标数据（' + (collectYearValue() - 1) + '年）</th>' +
       '<th style="width:56px">匹配来源</th><th style="width:46px">是否采纳</th><th style="width:64px">状态</th></tr>';
     t.appendChild(thead);
     var tbody = el('tbody');
@@ -1399,11 +1424,11 @@
         '<td>' + escapeHtml(d.v25 || '') + '</td><td>' + escapeHtml(d.v24 || '') + '</td>' +
         '<td>' + escapeHtml((COLLECT_SRC[d.src] || COLLECT_SRC.map).label) + '</td></tr>';
     }).join('');
-    return '<h2 style="font-family:微软雅黑">上交所《2026年FII可持续发展报告》定量指标信息采集表（2025年数据）</h2>' +
+    return '<h2 style="font-family:微软雅黑">上交所《2026年FII可持续发展报告》定量指标信息采集表（' + collectYearValue() + '年数据）</h2>' +
       '<p style="color:#888">单位：集团合并口径 · 由AI自动填充，请人工核实</p>' +
       '<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-family:微软雅黑;font-size:12px">' +
       '<tr style="background:#f5f7fb"><th>序号</th><th>附件定量指标名</th><th>平台对应指标名</th><th>平台对应指标编码</th>' +
-      '<th>本期指标数据（2025年）</th><th>上期指标数据（2024年）</th><th>匹配来源</th></tr>' +
+      '<th>本期指标数据（' + collectYearValue() + '年）</th><th>上期指标数据（' + (collectYearValue() - 1) + '年）</th><th>匹配来源</th></tr>' +
       rows + '</table>' +
       '<p style="color:#888;font-size:11px">注：数值由平台指标库按编码自动抓取（未匹配行的人工填写值原样保留），' +
       '与平台录入数据一致（目标100%准确率，请务必人工复核）。</p>';
@@ -1686,6 +1711,11 @@
   var collectStage = 'await-file';   /* await-file | await-extract | review | filling */
   var collectData = [];              /* 当前会话的匹配数据（含人工编辑） */
   var collectMappingUploaded = false;/* 用户是否已上传三列映射表（.xlsx） */
+  var DEMO_COLLECT_YEARS = [2025, 2024, 2023, 2022, 2021];  /* 平台全部收集年份（由新到旧，第一项=最新，演示数据） */
+  var DEMO_EMPTY_YEARS = [2021];   /* 发起过收集但暂无填报数据的年份（演示"所选年份无数据→提示更换"） */
+  var DEMO_COVER_YEAR = 2025;      /* 演示模板封面年度 */
+  var collectYear = DEMO_COLLECT_YEARS[0];   /* 年份按钮选择，默认最新收集年份 */
+  function collectYearValue() { return collectYear; }
 
   function resetCollect() {
     collectStage = 'await-file';
@@ -1723,6 +1753,14 @@
   }
 
   async function startExtract(prompt) {
+    /* 所选年份无收集数据（如仅发起过收集但无人填报）：提示更换年份，不生成确认表；上传模板的年份本身不限 */
+    if (DEMO_EMPTY_YEARS.indexOf(collectYear) !== -1) {
+      addAgent({
+        text: '⚠️ **所选年份（' + collectYear + '）暂无收集数据**，无法提取指标数值。请点击输入区【📅 年份】按钮更换年份后重新提取。',
+        chips: [{ label: '📅 更换年份', act: function () { openYearMenu(); } }]
+      });
+      return;
+    }
     var s = startSession();
     collectStage = 'review';
     showTyping('正在提取定量指标并匹配…');
@@ -1912,7 +1950,7 @@
     });
     await addProgress('自动填充并生成 Word', [
       { label: '锁定确认后的映射关系（' + total + ' 项·含人工修正 ' + editedN + ' 项·未匹配 ' + missN + ' 项不沉淀）', dur: 700 },
-      { label: '从平台指标库抓取 2025 / 2024 年度数值', dur: 1000, sub: [adoptN + ' / ' + total + ' 项参与填充（不采纳 ' + skipN + ' 项跳过）· 人工填写值原样保留'] },
+      { label: '从平台指标库抓取 ' + collectYearValue() + ' / ' + (collectYearValue() - 1) + ' 年度数值', dur: 1000, sub: [adoptN + ' / ' + total + ' 项参与填充（不采纳 ' + skipN + ' 项跳过）· 人工填写值原样保留'] },
       { label: '按模板原格式填充，生成 Word 文件', dur: 800 }
     ]);
     if (stale(s)) return;
@@ -2606,6 +2644,49 @@
 
   /* 【数据选择】按钮（输入区上方按钮区，排在【指标信息采集表】之后）：
    * 点击打开选择弹窗，提交后由 AI 一次性返回表格结果 */
+  /* 【📅 年份】按钮（仅采集表模式显示）：选项＝平台全部收集年份（由新到旧），默认最新；对下一次提取生效 */
+  function openYearMenu() {
+    var oldMenu = root.querySelector('.ecw-yearmenu');
+    if (oldMenu) { oldMenu.remove(); return; }
+    var menu = el('div', 'ecw-yearmenu');
+    menu.innerHTML =
+      '<div class="ecw-ymhead">选择取数年份<span class="ecw-ymclose" title="关闭">✕</span></div>' +
+      '<div class="ecw-ymbody"></div>' +
+      '<div class="ecw-ymfoot">上期＝所选年份前一年 · 选择对下一次提取生效</div>';
+    var body = menu.querySelector('.ecw-ymbody');
+    DEMO_COLLECT_YEARS.forEach(function (y, yi) {
+      var tag = yi === 0 ? '<i class="ecw-ymtag">最新</i>'
+        : DEMO_EMPTY_YEARS.indexOf(y) !== -1 ? '<i class="ecw-ymtag2">暂无数据</i>' : '';
+      var it = el('div', 'ecw-ymopt' + (collectYear === y ? ' on' : ''),
+        '<span class="ecw-ymy">' + y + tag + '</span><span class="ecw-ymchk">✓</span>');
+      it.onclick = function (ev) {
+        ev.stopPropagation();
+        collectYear = y;
+        $('ecw-yearbtn').textContent = '📅 年份：' + y;
+        menu.remove();
+        if (DEMO_EMPTY_YEARS.indexOf(y) !== -1) {
+          addSystem('⚠️ 所选年份（' + y + '）暂无收集数据，提取时将提示更换年份。');
+        } else if (y !== DEMO_COVER_YEAR) {
+          addSystem('⚠️ 所选年份（' + y + '）与模板封面年度（' + DEMO_COVER_YEAR + '）不一致，请确认。年份对下一次提取生效。');
+        } else {
+          addSystem('📅 取数年份已设为 ' + y + ' 年，对下一次提取生效。');
+        }
+      };
+      body.appendChild(it);
+    });
+    menu.querySelector('.ecw-ymclose').onclick = function (ev) { ev.stopPropagation(); menu.remove(); };
+    root.appendChild(menu);
+    var rb = $('ecw-yearbtn').getBoundingClientRect();
+    var pr = root.getBoundingClientRect();
+    menu.style.left = Math.max(8, Math.min(rb.left - pr.left - 170, pr.width - 252)) + 'px';
+    menu.style.top = (rb.bottom - pr.top + 8) + 'px';
+    requestAnimationFrame(function () { menu.classList.add('open'); });
+    setTimeout(function () {
+      document.addEventListener('click', function closeYm() { menu.remove(); }, { once: true });
+    }, 0);
+  }
+  $('ecw-yearbtn').onclick = function (e) { e.stopPropagation(); openYearMenu(); };
+
   $('ecw-databtn').onclick = function () {
     if (busy) return;
     openDataPicker();
