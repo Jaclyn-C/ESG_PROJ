@@ -237,6 +237,15 @@
 
    ![图片](http://www.kdocs.cn/api/v3/office/copy/NWVkMjFIT1ZBRTV1NGdiOGtGZG5kZDgyUTltMHh0WngvTUI0ZFV4ZGFVSFJpeWU4MDRneldsdlFIeWR6VlhDMHVBMGRSMW91ZkhNa25nY2FEQ3lnZFV0RGVQRzhubFlSNWp2bE5YUXRsWUtIMHBJbUh2QVVhLzRZbWNhYVdRYm1UQlVuckl0c2JtT3Era09VL0VqemZ4SVh4MkpSY3Eza2N2N09iWjBlTzFOc3gvTVU5S011Yy9VKzJjQkRseEF2T0NUMnptcHdSeE0wSzBZNzhqR09ZSVkzZ3NlaUQwTHVsZGpEKzBRNjVHWWFWTmcyakVaRVNKemliaFBNSHF4YzU0cVNFekd4UlA0PQ==/attach/object/ET4ETBZJACQG2?&kso_type=image&kso_extra=eyJ0eXBlIjoiaW1hZ2UiLCJpZCI6IkVUNEVUQlpKQUNRRzIiLCJvd25lciI6IjU0NTQ2MDE0OTU0MyIsInJvdGF0ZSI6MCwic3RvcmFnZSI6ImJhc2UiLCJ3aWR0aCI6Mjk0MCwiaGVpZ2h0IjoxNDkyfQ)
 
+> 【需求变更 2026-09-11】
+> 1. 映射记录在"指标信息采集表"对话流程**最终确认时**同步写入本列表：关联模板＝本次模板、确认状态＝已确认、指标映射数＝本次入库条数；不采纳行与无平台编码行不写入（见 6.4.9）。
+> 2. 全局映射库中的失效条目（指向的平台指标已改名/删除）在确认时同步**停用**，不再参与后续匹配。
+> 3. 全局映射表随每次确认同步更新到本列表：**同一模板再次确认时更新同一条记录**（不新建重复记录），指标映射数与更新时间随确认刷新。
+> 4. 【查看】：点击行内【查看】弹出映射明细（浮窗），**以表格渲染该记录全部映射行**，列为：附件定量指标名 / 平台对应指标名 / 平台对应指标编码（平台不支持 xlsx 预览，故以表格形式呈现）。
+> 5. 【删除】：点击行内【删除】（仅管理员）删除该映射记录及其文件；**删除仅移除知识库中的展示记录，不影响智能体全局映射库的既有匹配条目**（全局库条目的清理走"平台指标失效→确认时停用"机制，见变更块第 2 条）。
+> 6. 知识库单独维护一份「全局指标映射总表」：全局映射库当前全部有效条目的全量合并视图（三列）。每次采集表确认导致全局库变化（新增/更新/失效停用）时，**同一条记录重新生成并覆盖更新**（不堆积历史版本），在列表中置顶展示，关联模板列显示"全局"。可查看（三列表格明细）、可下载；**系统自动维护，不提供删除**（其余按模板的映射记录照旧可下载、可删除）。
+> （下载已有，不变。菜单维持仅管理员可见。）
+
 ## **6.2 全局 AI 智能助手（悬浮对话窗口**）【开发中】
 
 ### 6.2**.1 打开与收起助手**
@@ -283,7 +292,7 @@
 
 1. 发送文字：在输入框输入内容，点击【发送】或按回车键，消息以用户气泡显示在会话区；AI 处理期间先显示"正在思考…"动效，完成后逐条返回消息，期间【发送】置灰。
 
-2. 上传附件：点击输入框左下【📎】按钮，弹出本地文件选择框，可一次选择一个或多个文件（支持 PDF、docx、doc、txt、PPT、xlsx、jpg、png；单个文件大小上限为100MB；不含音视频、gif），确认后以"📎 《文件名》（大小）"逐条显示在会话区。
+2. 上传附件：点击输入框左下【📎】按钮，弹出本地文件选择框，可一次选择一个或多个文件（支持 PDF、docx、doc、txt、PPT、pptx、xlsx、xls、jpg、jpeg、png 共 11 个扩展名；单个文件大小上限为100MB；不含音视频、gif），确认后以"📎 《文件名》（大小）"逐条显示在会话区。
 
 3. 引用知识库文件：点击输入框左下【🗂】按钮，弹出"从知识库选择文件"窗口，窗口分两个分区——"知识库文件"（以文件夹树展示，层级与「知识库」页面完全一致，点文件夹展开/收起，点文件勾选，可多选）与"信息采集指标映射表"（列出映射表文件）；底部提示已选数量，点击【确认引用】后以"🗂 已引用知识库文件：《文件名》…"显示在会话区。
 
@@ -461,7 +470,9 @@
 
 ## 6.4 指标信息采集表 Agent（上交所采集表自动填充）
 
-### 6.4.1 进入与提供模板
+> ⚠️【需求变更 2026-09-11】本节 6.4.1–6.4.4 为旧版流程，**已作废**（保留仅作历史记录，请勿参照开发）；当前有效版本为本节末尾【6.4.5–6.4.9 新版流程 · 2026-09-11】。
+
+### 【已作废】6.4.1 进入与提供模板
 
 功能说明：整个功能在聊天助手对话界面中完成，**不设独立功能页面**；上交所定量指标采集表模板自动或手动上传至知识库「上交所定量指标信息采集表」文件夹；用户上传或引用模板文档，及输入提示词等其他文件（可选），AI 才开始提取。
 
@@ -471,7 +482,7 @@
 
    ![图片](http://www.kdocs.cn/api/v3/office/copy/NWVkMjFIT1ZBRTV1NGdiOGtGZG5kZDgyUTltMHh0WngvTUI0ZFV4ZGFVSFJpeWU4MDRneldsdlFIeWR6VlhDMHVBMGRSMW91ZkhNa25nY2FEQ3lnZFV0RGVQRzhubFlSNWp2bE5YUXRsWUtIMHBJbUh2QVVhLzRZbWNhYVdRYm1UQlVuckl0c2JtT3Era09VL0VqemZ4SVh4MkpSY3Eza2N2N09iWjBlTzFOc3gvTVU5S011Yy9VKzJjQkRseEF2T0NUMnptcHdSeE0wSzBZNzhqR09ZSVkzZ3NlaUQwTHVsZGpEKzBRNjVHWWFWTmcyakVaRVNKemliaFBNSHF4YzU0cVNFekd4UlA0PQ==/attach/object/VN73ZCZJABAHY?&kso_type=image&kso_extra=eyJ0eXBlIjoiaW1hZ2UiLCJpZCI6IlZONzNaQ1pKQUJBSFkiLCJvd25lciI6IjU0NTQ2MDE0OTU0MyIsInJvdGF0ZSI6MCwic3RvcmFnZSI6ImJhc2UiLCJ3aWR0aCI6Mjk0MCwiaGVpZ2h0IjoxNTk4fQ)
 
-### 6.4.2 提取指标与匹配结果展示（Excel 样式表格）
+### 【已作废】6.4.2 提取指标与匹配结果展示（Excel 样式表格）
 
 功能说明：AI 解析模板，提取其中**所有需填写的定量指标**，自动到平台指标库匹配对应指标并读取数值；匹配结果以 Excel 样式表格展示在聊天窗口，行数过多时仅预览前几行，点击可放大查看/编辑完整表格。
 
@@ -483,7 +494,7 @@
 
    ![图片](http://www.kdocs.cn/api/v3/office/copy/NWVkMjFIT1ZBRTV1NGdiOGtGZG5kZDgyUTltMHh0WngvTUI0ZFV4ZGFVSFJpeWU4MDRneldsdlFIeWR6VlhDMHVBMGRSMW91ZkhNa25nY2FEQ3lnZFV0RGVQRzhubFlSNWp2bE5YUXRsWUtIMHBJbUh2QVVhLzRZbWNhYVdRYm1UQlVuckl0c2JtT3Era09VL0VqemZ4SVh4MkpSY3Eza2N2N09iWjBlTzFOc3gvTVU5S011Yy9VKzJjQkRseEF2T0NUMnptcHdSeE0wSzBZNzhqR09ZSVkzZ3NlaUQwTHVsZGpEKzBRNjVHWWFWTmcyakVaRVNKemliaFBNSHF4YzU0cVNFekd4UlA0PQ==/attach/object/HZX35CZJAAQGA?&kso_type=image&kso_extra=eyJ0eXBlIjoiaW1hZ2UiLCJpZCI6IkhaWDM1Q1pKQUFRR0EiLCJvd25lciI6IjU0NTQ2MDE0OTU0MyIsInJvdGF0ZSI6MCwic3RvcmFnZSI6ImJhc2UiLCJ3aWR0aCI6Mjk0MCwiaGVpZ2h0IjoxNTk2fQ)
 
-### 6.4.3 表格内直接修改与确认
+### 【已作废】6.4.3 表格内直接修改与确认
 
 功能说明：用户可在表格中**直接修改**"平台指标"与"数值"单元格；有修改时点击确认，AI 按修改返回更新后的结果（可多轮修改，直至完全准确）；未做任何修改时点击确认，直接进入填充流程。
 
@@ -501,7 +512,7 @@
 
    ![图片](http://www.kdocs.cn/api/v3/office/copy/NWVkMjFIT1ZBRTV1NGdiOGtGZG5kZDgyUTltMHh0WngvTUI0ZFV4ZGFVSFJpeWU4MDRneldsdlFIeWR6VlhDMHVBMGRSMW91ZkhNa25nY2FEQ3lnZFV0RGVQRzhubFlSNWp2bE5YUXRsWUtIMHBJbUh2QVVhLzRZbWNhYVdRYm1UQlVuckl0c2JtT3Era09VL0VqemZ4SVh4MkpSY3Eza2N2N09iWjBlTzFOc3gvTVU5S011Yy9VKzJjQkRseEF2T0NUMnptcHdSeE0wSzBZNzhqR09ZSVkzZ3NlaUQwTHVsZGpEKzBRNjVHWWFWTmcyakVaRVNKemliaFBNSHF4YzU0cVNFekd4UlA0PQ==/attach/object/S4SL7CZJABQFA?&kso_type=image&kso_extra=eyJ0eXBlIjoiaW1hZ2UiLCJpZCI6IlM0U0w3Q1pKQUJRRkEiLCJvd25lciI6IjU0NTQ2MDE0OTU0MyIsInJvdGF0ZSI6MCwic3RvcmFnZSI6ImJhc2UiLCJ3aWR0aCI6Mjk0MCwiaGVpZ2h0IjoxNTk0fQ)
 
-### 6.4.4 自动填充与报告下载
+### 【已作废】6.4.4 自动填充与报告下载
 
 功能说明：确认（无修改）后，AI 从平台指标库抓取数值、按模板原格式实时填充到采集表模板，生成 Word 报告文件返回聊天窗口供下载；AI 只填充所有定量指标数据，不对其他内容做处理。
 
@@ -512,6 +523,114 @@
 3. 复用与后续：下载后助手提示"本次确认的指标映射关系已自动存入知识库「上交所定量指标信息采集表」文件夹，后续可直接复用，无需重新匹配"；并提供快捷指令【重新匹配模板】。
 
    ![图片](http://www.kdocs.cn/api/v3/office/copy/NWVkMjFIT1ZBRTV1NGdiOGtGZG5kZDgyUTltMHh0WngvTUI0ZFV4ZGFVSFJpeWU4MDRneldsdlFIeWR6VlhDMHVBMGRSMW91ZkhNa25nY2FEQ3lnZFV0RGVQRzhubFlSNWp2bE5YUXRsWUtIMHBJbUh2QVVhLzRZbWNhYVdRYm1UQlVuckl0c2JtT3Era09VL0VqemZ4SVh4MkpSY3Eza2N2N09iWjBlTzFOc3gvTVU5S011Yy9VKzJjQkRseEF2T0NUMnptcHdSeE0wSzBZNzhqR09ZSVkzZ3NlaUQwTHVsZGpEKzBRNjVHWWFWTmcyakVaRVNKemliaFBNSHF4YzU0cVNFekd4UlA0PQ==/attach/object/QWB37CZJACQGE?&kso_type=image&kso_extra=eyJ0eXBlIjoiaW1hZ2UiLCJpZCI6IlFXQjM3Q1pKQUNRR0UiLCJvd25lciI6IjU0NTQ2MDE0OTU0MyIsInJvdGF0ZSI6MCwic3RvcmFnZSI6ImJhc2UiLCJ3aWR0aCI6Mjk0MCwiaGVpZ2h0IjoxNTk2fQ)
+
+> 【6.4.5–6.4.9 新版流程 · 2026-09-11】变更摘要（相对测试环境现状）：
+> ① 映射表改为可选，匹配缺省链"逐行找、上传优先、全局兜底、失效作废、最后 AI 猜"（现状：首次使用强制上传映射表）；
+> ② 确认表由 5 列扩为 7 列（新增平台指标编码/上期数据/匹配来源/是否采纳；置信度不占列、随 top3 候选显示）＋行级"已修改/已刷新"标记（现状：无编码/上期/来源/采纳列，无标记）；
+> ③ AI 匹配行提供 top3 下拉（默认最高置信度，可手输；现状：仅自由文本输入）；
+> ④ 人工数值任何重匹配不得覆盖（现状：改指标名行重匹配后人工值被平台值冲掉）；
+> ⑤ 允许"无映射手工行"：平台名/编码可空、数值可填可不填、不进映射表（现状：采纳行必须有名称+编码且两期数值必填，缺一报错卡死）；
+> ⑥ 数值允许为空：空值跳过写入、单元格留空（现状：确认时两期必填校验）；
+> ⑦ 映射同步改为**确认时**双写（全局映射库＋知识库映射列表），失效旧映射同时停用；不采纳行/无映射行不入库（现状：只写 Agent 内部库，未回写平台映射列表）；
+> ⑧ 采集表模式下附件类型收窄为 .docx/.xlsx，选错当场报错（现状：沿用全局 11 个扩展名白名单，错型文件被静默当作普通附件）。
+
+### 6.4.5 入口与上传
+
+功能说明：整个功能在全局 AI 助手对话界面中完成，不设独立功能页面；管理员进入"指标信息采集表"模式后，提供 Word 模板（必传）与映射表（可选），AI 即开始提取与匹配；首次使用零门槛——全局映射库为空也可直接使用，全部行走 AI 匹配。
+
+1. 进入：点击输入区上方的【指标信息采集表】按钮（仅管理员可见，沿用全局规则 7），顶部显示模式提示条，助手发送欢迎语说明流程。
+
+2. 提供模板（必传）：点击【📎】本地上传，或点击【🗂】从知识库引用模板文件；模板格式硬校验 DOCX。
+
+3. 提供映射表（可选）：点击【📎】本地上传，或点击【🗂】从知识库引用（知识库中任意 xlsx 文件均可）；格式硬校验为三列 XLSX——附件定量指标名 / 平台对应指标名 / 平台对应指标编码，三列必须同时填写、缺一报错；整表须恰好包含一个合规映射区域。
+
+4. 附件两层校验：第 1 层沿用全局规则（单文件 ≤100MB、不含音视频/gif）；第 2 层为采集表模式的类型收窄——【📎】选择器仅接受 .docx/.xlsx，选择其他类型（含全局白名单内的 pdf/ppt/jpg 等）在选文件瞬间报错提示；模板槽只认 docx、映射槽只认 xlsx，错配当场提示。
+
+5. 首次使用零门槛：全局映射库为空也可直接使用（不强制上传映射表），全部行走 AI 匹配。
+
+6. 非认证模板兜底（保留现状）：模板结构与认证库不符时，流程停在"模板结构人工确认"卡——AI 预分类＋用户逐行核对本期/上期数值列号、补单位、自拟模板版本号，确认后该结构入认证库，下次直通；标准上交所模板不出现此卡。
+
+### 6.4.6 匹配规则（缺省链与冲突处理）
+
+功能说明：对每一行附件定量指标，按"用户本次上传的映射表 → 全局映射表 → 大模型语义匹配"的缺省链依次寻找平台指标；上传映射表不屏蔽全局库，失效映射视同未翻到，同名冲突按五类规则处理。
+
+1. 匹配缺省链（逐行生效）：用户本次上传的映射表 → 全局映射表 → 大模型语义匹配（给出 top3 候选）。口诀：逐行找、上传优先、全局兜底、失效作废、最后 AI 猜。
+
+2. 上传表与全局库并存：上传映射表不屏蔽全局库——上传表覆盖到的行用上传表，其余行仍可用全局库兜底。
+
+3. 有效性校验：映射指向的平台指标已改名/删除时，该条映射视同未翻到，该行落 AI 匹配；确认时该失效旧映射在全局库中同步**停用**。
+
+4. 冲突处理（五类）：
+
+   ① 上传表内部同名重复：解析时报错拒收（提示"附件定量指标名'××'重复"），用户改表再传；
+
+   ② 上传表行内名码自相矛盾：运行时被有效性校验兜住，该条视同无效，该行走 AI 匹配；
+
+   ③ 上传表与全局库同名冲突：不是错误，按行上传优先；
+
+   ④ 多个附件指标名指向同一平台指标（多对一）：合法，各行各自取数；
+
+   ⑤ 全局库内部重复：由数据库唯一约束杜绝。
+
+### 6.4.7 确认表（结构与年份）
+
+功能说明：提取与匹配完成后，会话中出现可编辑的确认表，共 7 列，行号旁带"已修改/已刷新"标记；两期数值列头标注年份；行数过多时仅预览前 6 行，完整编辑交互由大窗承载。
+
+1. 年份规则（沿用现状）：本期年份＝消息中明示年份 → 模板封面年度 → 当前系统年份（依次取先命中）；前两者同时存在且不一致时阻止并报错；上期年份＝本期减一年；年份整表统一；两列列头标注年份（如"本期指标数据（2026年）/上期指标数据（2025年）"）。
+
+2. 确认表 7 列：
+
+   ① 附件定量指标名——模板提取，只读；
+
+   ② 平台对应指标名——映射硬匹配直填；AI 匹配给 top3 下拉：每个候选后带置信度分数，默认选中最高分（用户不选即最高分），都不对可手输文字；
+
+   ③ 平台对应指标编码——随匹配带出，只读；
+
+   ④ 本期指标数据（XXXX年）——平台查得到自动填，查不到留空；可手输；
+
+   ⑤ 上期指标数据（XXXX年）——同本期列；
+
+   ⑥ 匹配来源——映射表 / AI匹配 / 未匹配；
+
+   ⑦ 是否采纳——默认采纳；选否则该行不填充、不进映射表。
+
+   置信度不设独立列，仅随 top3 候选显示。
+
+3. 行号旁标记（不占列）："已修改"＝用户在本工作流改过该行（改指标名 / 改或填数值 / 切换采纳），跨确认轮持续到工作流结束；"已刷新"＝该行本轮被 AI 重新匹配、身份或数值被服务端刷新，仅标本轮。二次确认时先扫"已刷新"再看"已修改"，无需回忆。
+
+4. 手输未命中：用户手输的平台指标名再匹配仍未命中时，确认表中保留用户原文显示＋标"未命中"，匹配来源显示"未匹配"。
+
+5. 预览规则：超过 6 行时仅显示前 6 行＋提示行；【查看/编辑完整表格】弹出大窗承载全部编辑交互。
+
+### 6.4.8 提交人工确认（循环与终确）
+
+功能说明：用户在确认表中完成核对与修改后点击【确认】提交；**只要本次任务存在过任何修改（无论本轮还是此前轮次，含改过又取消弹窗的情形），点【确认】一律返回全量结果表供用户再次核对、不触发填充**；填充仅能通过结果卡上的【✅ 确认无误，开始填充】显式按钮触发；**全程零修改**的任务点【确认】直接进入填充。人工填写的数值神圣不可覆盖。
+
+1. 提交：点击【确认】提交；有变更的行（AI 待匹配、改过指标名的）→ 系统再查平台 → 返回全量结果表（同样提供 top3 下拉、默认最高分）。
+
+2. 人工数值神圣不可覆盖：用户填过/改过的数值，任何重匹配都不冲掉；改名行只刷新指标身份与编码。
+
+3. 匹配不上的终局（无映射手工行）：平台名/编码留空（手输原文保留＋"未命中"标记），数值可填可不填——填了正常填充，不填跳过写入、单元格留空；该行不进映射表。
+
+4. 确认返回规则：本轮有修改 → 重匹配后返回全量结果表（变更行标"已刷新"）；本轮无修改但任务中存在过修改 → 同样返回全量结果表（提示"共 X 项，其中已修改 N 项"）；返回的结果卡均提供【✅ 确认无误，开始填充】按钮。
+
+5. 终确填充：填充仅经结果卡【✅ 确认无误，开始填充】触发；点击后进入填充流程（见 6.4.9）。全程零修改的任务例外：首次【确认】即直接填充。
+
+6. 并发保护：版本乐观锁，冲突自动拉最新快照刷新重试（沿用现状）。
+
+### 6.4.9 填充与映射沉淀
+
+功能说明：最终确认（无修改）后，AI 按单元格坐标将数值原位回填至原模板生成 Word 文件供下载；确认的映射关系在同一事务内双写全局映射库与知识库映射列表，不采纳行与无映射行一律不入库。
+
+1. 回填：最终确认（无修改）→ 按单元格坐标原位回填原模板；空值跳过写入（单元格留空）；不采纳行跳过。
+
+2. 产物：Word 下载卡片，文件名＝原模板名＋"（已填充）.docx"，带"⚠ AI生成/提取，请人工核实"标注。
+
+3. 映射同步（确认时同一事务内双写）：① 全局映射库——只收"采纳且有平台编码"的行，失效旧映射同步停用；② 知识库映射列表（6.1.7）——同步写入，关联模板＝本次模板、确认状态＝已确认、指标映射数＝本次入库条数。不采纳行、无映射行一律不进映射表。
+
+4. 完成提示带统计：共 X 项 · 采纳 Y · 无映射 Z · 不采纳 W。
+
+5. 回填自检（沿用现状）：结构指纹不变校验＋写入位置逐项复核，不通过则阻止发布。
 
 ## 6.5 全局AI 智能助手检索与附件内容提取（智能问答模式）
 

@@ -4,7 +4,8 @@
  * 1. 侧边栏改为三个菜单：
  *    · ▾ 最佳案例（二级：指标最佳高分/评级回应案例、案例管理）
  *    · ▸ 知识库文件（二级/三级…＝动态文件夹树，支持无限层级）
- *    · 信息采集指标映射表
+ *    · 信息采集指标映射表（置顶「📌 全局指标映射总表」系统维护记录：仅查看/下载、
+ *      不可删除；其余按模板记录【查看】三列明细浮窗/【下载】/【删除】）
  * 2. 知识库文件视图：搜索表单（el-form flex flex-wrap items-center gap-3）
  *    右侧新增「新建文件」「新建文件夹」按钮；面包屑导航；文件列表。
  * 3. 新建文件：本地选择文件 + 标签 + 开放范围（【＋ 添加人员】弹出"选择用户"窗口：
@@ -505,16 +506,139 @@
     '<div style="font-size:11.5px;color:#98a0ad;margin-top:8px">原型说明：原「案例管理」入口收纳入「最佳案例」二级菜单。</div>' +
     '</div></div></div>';
 
-  /* ---- 信息采集指标映射表 ---- */
+  /* ---- 信息采集指标映射表 ----
+     列表列：映射表文件 / 关联模板 / 指标映射数 / 确认状态 / 更新时间 / 操作。
+     置顶特殊记录「全局指标映射总表」（📌＋特殊底色，系统维护，仅【查看】【下载】，无删除）；
+     其余按模板的记录：【查看】【下载】【删除】（删除需 confirm，仅普通记录）。
+     【查看】弹出三列明细浮窗：附件定量指标名 / 平台对应指标名 / 平台对应指标编码；
+     全局总表行数多，仅渲染前 20 行＋「…共 N 条」。 */
+  var MAP_GLOBAL = [
+    ['披露的温室气体范围1排放量（二氧化碳当量公吨）', '温室气体排放-范围一', 'E-E-1-1-0001'],
+    ['披露的温室气体范围2排放量（二氧化碳当量公吨）', '温室气体排放-范围二', 'E-E-1-1-0002'],
+    ['如是，披露的温室气体范围3排放量（二氧化碳当量公吨）', '温室气体排放-范围三（价值链）', 'E-E-1-1-0003'],
+    ['披露的温室气体减排量（二氧化碳当量公吨）', '温室气体排放总量', 'E-E-1-1-0004'],
+    ['温室气体减排资金投入（万元）', '环保设施改造投入', 'E-E-1-3-0001'],
+    ['颗粒物（PM）', '颗粒物（PM）排放量', 'E-E-2-1-0001'],
+    ['硫氧化物（SOx）', '硫氧化物（SOx）排放量', 'E-E-2-1-0002'],
+    ['氮氧化物（NOX）', '氮氧化物（NOx）排放量', 'E-E-2-1-0003'],
+    ['挥发性有机物（VOCs）', '挥发性有机物（VOCs）排放量', 'E-E-2-1-0004'],
+    ['化学需氧量（COD）', '化学需氧量（COD）排放量', 'E-E-2-2-0001'],
+    ['能源消费总量（吨标准煤）', '综合能源消耗总量', 'E-E-14-1-0001'],
+    ['生化需氧量（BOD）', '生化需氧量（BOD）排放量', 'E-E-2-2-0002'],
+    ['氨氮（NH3-N）', '氨氮排放量', 'E-E-2-2-0003'],
+    ['总氮（TN）', '总氮排放量', 'E-E-2-2-0004'],
+    ['总磷（TP）', '总磷排放量', 'E-E-2-2-0005'],
+    ['产生的有害废弃物总量（吨）', '有害废弃物产生总量', 'E-E-5-1-0001'],
+    ['产生的无害废弃物总量（吨）', '无害废弃物产生总量', 'E-E-5-1-0002'],
+    ['直接能源总消耗量（吨标准煤）', '直接能源消耗量', 'E-E-14-1-0004'],
+    ['间接能源总消耗量（吨标准煤）', '间接能源消耗量', 'E-E-14-1-0005'],
+    ['其中：清洁能源使用量（吨标准煤）', '清洁能源使用量', 'E-E-14-3-0002'],
+    ['总能耗强度（吨标煤/万元）', '单位营收综合能耗', 'E-E-14-4-0001'],
+    ['总耗水量（吨）', '总耗水量', 'E-E-15-1-0001'],
+    ['水资源使用强度（吨/万元）', '单位营收水耗', 'E-E-15-1-0002'],
+    ['废弃物循环利用量（吨）', '废弃物循环利用量', 'E-E-5-2-0001'],
+    ['乡村振兴总投入金额（万元）', '乡村振兴投入总额', 'S-S-1-2-0001'],
+    ['乡村振兴惠及人数（人）', '乡村振兴惠及人数', 'S-S-1-2-0002'],
+    ['公益慈善、志愿活动等投入资金金额（万元）', '公益慈善及志愿服务投入', 'S-S-1-1-0001'],
+    ['研发投入金额（万元）', '研发投入金额', 'G-G-1-1-0001'],
+    ['研发投入占主营业务收入比例（%）', '研发投入占营收比例', 'G-G-1-1-0002'],
+    ['报告期末逾期未支付款项的金额（万元）', '逾期未支付款项总额', 'G-G-3-2-0001'],
+    ['逾期未支付中小企业款项金额（万元）', '逾期未支付中小企业款项', 'G-G-3-2-0002'],
+    ['员工流失率（%）（剔除适龄退休）', '员工流失率（剔除适龄退休）', 'S-S-4-1-0001'],
+    ['员工培训覆盖率（%）', '员工培训覆盖率', 'S-S-4-2-0001'],
+    ['年度培训支出金额（万元）', '年度培训支出', 'S-S-4-2-0002'],
+    ['接受反商业贿赂及反贪污培训的董事百分比（%）', '反贪培训覆盖-董事', 'G-G-2-1-0001'],
+    ['接受反商业贿赂及反贪污培训的管理层人员百分比（%）', '反贪培训覆盖-管理层', 'G-G-2-1-0002']
+  ];
+  var MAP_LIST = [
+    { name: '指标映射表-2025确认版.xlsx', tpl: '2026年FII可持续发展报告-定量指标采集表',
+      status: '已确认', cls: 'c3', time: '2025-08-21', rows: MAP_GLOBAL.slice(0, 12) },
+    { name: '指标映射表-2026FII草稿.xlsx', tpl: '2026年FII可持续发展报告-定量指标采集表',
+      status: '待确认', cls: 'c2', time: '2026-08-25', rows: MAP_GLOBAL.slice(12, 24) }
+  ];
+
   mapView.innerHTML =
     '<div class="p-3"><div class="el-card is-always-shadow"><div class="el-card__body">' +
     '<div style="font-size:15px;font-weight:600;color:#133368;margin-bottom:12px">信息采集指标映射表</div>' +
-    '<table class="kbf-table"><thead><tr><th>映射表文件</th><th>关联模板</th><th>指标映射数</th><th>确认状态</th><th>更新时间</th><th>操作</th></tr></thead><tbody>' +
-    '<tr><td>指标映射表-2025确认版.xlsx</td><td>2026年FII可持续发展报告-定量指标采集表</td><td>12 项</td><td><span class="kb-tag c3">已确认</span></td><td>2025-08-21</td><td><span class="kbf-op">下载</span><span class="kbf-op">查看</span></td></tr>' +
-    '<tr><td>指标映射表-2026FII草稿.xlsx</td><td>2026年FII可持续发展报告-定量指标采集表</td><td>12 项</td><td><span class="kb-tag c2">待确认</span></td><td>2026-08-25</td><td><span class="kbf-op">下载</span><span class="kbf-op">查看</span></td></tr>' +
-    '</tbody></table>' +
-    '<div style="font-size:11.5px;color:#98a0ad;margin-top:8px">说明：采集表 Agent 确认的映射关系会自动存入此列表，供后续年份复用（需求三⑤）。</div>' +
+    '<div id="kbm-list"></div>' +
+    '<div style="font-size:11.5px;color:#98a0ad;margin-top:8px">说明：采集表 Agent 确认的映射关系会自动存入此列表，' +
+    '并同步刷新置顶的「📌 全局指标映射总表」（系统维护，不可删除），供后续年份复用。</div>' +
     '</div></div></div>';
+
+  /* 三列明细查看浮窗（底部【关闭】；全局总表只渲染前 20 行＋「…共 N 条」） */
+  function openMapDialog(title, rows) {
+    lmask.innerHTML = '';
+    var dlg = el('div', 'kbd');
+    dlg.style.width = '680px';
+    var h = el('div', 'kbd-h', '📋 ' + esc(title) + '<button title="关闭">✕</button>');
+    var b = el('div', 'kbd-b');
+    var t = el('table', 'kbf-table kbd-ptab');
+    t.innerHTML = '<thead><tr><th style="width:44px">#</th><th style="width:42%">附件定量指标名</th>' +
+      '<th>平台对应指标名</th><th style="width:120px">平台对应指标编码</th></tr></thead>';
+    var tb = el('tbody');
+    var MAX = 20;
+    rows.slice(0, MAX).forEach(function (r, i) {
+      var tr = el('tr');
+      tr.innerHTML = '<td>' + (i + 1) + '</td><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td>';
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    b.appendChild(t);
+    if (rows.length > MAX) b.appendChild(el('div', 'kbd-cempty', '…共 ' + rows.length + ' 条（原型仅展示前 ' + MAX + ' 条）'));
+    var fbar = el('div', 'kbd-f');
+    var close = el('button', 'el-button el-button--primary', '<span>关闭</span>');
+    close.type = 'button';
+    function closeMap() { lmask.classList.remove('open'); lmask.innerHTML = ''; }
+    close.onclick = closeMap;
+    h.querySelector('button').onclick = closeMap;
+    fbar.appendChild(close);
+    dlg.appendChild(h); dlg.appendChild(b); dlg.appendChild(fbar);
+    lmask.appendChild(dlg);
+    lmask.classList.add('open');
+  }
+
+  function renderMap() {
+    var box = mapView.querySelector('#kbm-list');
+    if (!box) return;
+    var t = el('table', 'kbf-table');
+    t.innerHTML = '<thead><tr><th>映射表文件</th><th>关联模板</th><th>指标映射数</th>' +
+      '<th>确认状态</th><th>更新时间</th><th style="width:150px">操作</th></tr></thead>';
+    var tb = el('tbody');
+
+    /* 置顶：全局指标映射总表（系统维护，仅查看/下载，无删除） */
+    var tg = el('tr');
+    tg.style.background = '#f7f9fd';
+    tg.innerHTML =
+      '<td><span style="font-weight:600;color:#133368">📌 全局指标映射总表</span></td>' +
+      '<td>全局</td><td>' + MAP_GLOBAL.length + ' 项</td>' +
+      '<td><span class="kb-tag c1">系统维护</span></td><td>2026-09-10</td>' +
+      '<td><span class="kbf-op op-v">查看</span><span class="kbf-op op-d">下载</span></td>';
+    tg.querySelector('.op-v').onclick = function () { openMapDialog('全局指标映射总表 · 明细', MAP_GLOBAL); };
+    tg.querySelector('.op-d').onclick = function () { toast('⬇ 全局指标映射总表已开始下载（原型提示）'); };
+    tb.appendChild(tg);
+
+    /* 按模板的记录：查看 / 下载 / 删除 */
+    MAP_LIST.forEach(function (m) {
+      var tr = el('tr');
+      tr.innerHTML =
+        '<td><div class="kbf-name"><span>📊</span><span class="nm" title="' + esc(m.name) + '">' + esc(m.name) + '</span></div></td>' +
+        '<td>' + esc(m.tpl) + '</td><td>' + m.rows.length + ' 项</td>' +
+        '<td><span class="kb-tag ' + m.cls + '">' + esc(m.status) + '</span></td>' +
+        '<td>' + esc(m.time) + '</td>' +
+        '<td><span class="kbf-op op-v">查看</span><span class="kbf-op op-d">下载</span><span class="kbf-op del op-x">删除</span></td>';
+      tr.querySelector('.op-v').onclick = function () { openMapDialog(m.name + ' · 明细', m.rows); };
+      tr.querySelector('.op-d').onclick = function () { toast('⬇ ' + m.name + ' 已开始下载（原型提示）'); };
+      tr.querySelector('.op-x').onclick = function () {
+        if (!confirm('确认删除映射表「' + m.name + '」？删除后该模板的映射需重新确认。')) return;
+        MAP_LIST = MAP_LIST.filter(function (x) { return x !== m; });
+        renderMap();
+      };
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    box.innerHTML = '';
+    box.appendChild(t);
+  }
 
   /* ---- 知识库文件视图 ---- */
   filesView.innerHTML =
@@ -644,6 +768,7 @@
       if (n) n.classList.toggle('on', k === v);
     });
     if (v === 'files') renderFiles();
+    if (v === 'map') renderMap();
     buildMenu();
   }
 

@@ -5,7 +5,9 @@
  *   · 左侧历史对话列表（localStorage 持久化，跨页面共享）
  *   · 智能问答（默认）—— 知识库检索、附件内容提取演示
  *   · 报告生成 Agent —— 固定演示流程：解析→指标匹配确认→生成报告
- *   · 指标信息采集表 Agent —— 模板解析→映射确认→按年填充→文件下载
+ *   · 指标信息采集表 Agent —— 上传 Word 模板（.docx 必传）＋可选三列映射表（.xlsx）→
+ *     提取合并映射（映射表/AI top3/未匹配）→ 8 列确认表核对修改（下拉/手输/数值/采纳，可循环）→
+ *     确认后按模板原格式填充两期数值生成 Word；映射关系同步全局映射库与知识库映射列表
  *   · 数据选择（REQ-01 v6）—— 指标库→维度→主题→议题→指标 五层下钻 / 子树搜索 /
  *     已选区逐指标配置年份与维度（跨维度勾选：同一指标可同时选 FII＋分会＋法人＋策进组 对象，所有选择不互斥；
  *     维度弹窗选中行着色＋按维度着色的已选对象总览 chips），多选提交后 AI 一次性以单一表格返回
@@ -412,6 +414,32 @@
     '#ecw-root .ecw-bigb .ecw-tbl{font-size:12px}',
     '#ecw-root .ecw-bigf{padding:10px 14px;border-top:1px solid #eef0f5;background:#fafbfe;display:flex;',
     ' align-items:center;gap:8px;flex-shrink:0}',
+
+    /* ---- 采集表确认表格的扩展控件（来源徽标 / 行内标记 / 采纳置灰 / top3 下拉） ---- */
+    '#ecw-root .ecw-srctag{display:inline-block;font-size:10.5px;border-radius:3px;padding:1px 6px;',
+    ' white-space:nowrap;font-weight:500}',
+    '#ecw-root .ecw-srctag-map{color:#2f5fd9;background:#e8efff}',
+    '#ecw-root .ecw-srctag-ai{color:#d97a00;background:#fff3e8}',
+    '#ecw-root .ecw-srctag-miss{color:#8a919f;background:#f0f1f5}',
+    '#ecw-root .ecw-rowtag{display:inline-block;font-size:10px;border-radius:3px;padding:0 4px;',
+    ' margin-left:4px;white-space:nowrap;font-weight:500;vertical-align:1px}',
+    '#ecw-root .ecw-rowtag-ed{color:#d97a00;background:#fff3e8;border:1px solid #ffe0b3}',
+    '#ecw-root .ecw-rowtag-rf{color:#2f5fd9;background:#e8efff;border:1px solid #c9d8ff}',
+    '#ecw-root .ecw-misstag{display:inline-block;font-size:10px;color:#98a0ad;background:#f0f1f5;',
+    ' border-radius:3px;padding:0 5px;margin-left:5px;white-space:nowrap}',
+    '#ecw-root .ecw-tbl td.ecw-misscell::after{content:"未命中";display:inline-block;font-size:10px;',
+    ' color:#98a0ad;background:#f0f1f5;border-radius:3px;padding:0 5px;margin-left:5px;white-space:nowrap}',
+    '#ecw-root .ecw-tbl tr.ecw-off td{color:#b6bcc7;background:#fafafc!important;text-decoration:line-through;',
+    ' text-decoration-color:#c9ced9}',
+    '#ecw-root .ecw-tbl tr.ecw-off td .ecw-srctag,#ecw-root .ecw-tbl tr.ecw-off td .ecw-rowtag{opacity:.45}',
+    '#ecw-root select.ecw-xsel{width:100%;border:1px solid #dfe3ee;border-radius:4px;padding:2px 4px;',
+    ' font-size:11.5px;font-family:inherit;color:#1f2329;background:#fbfcff;outline:none;cursor:pointer;',
+    ' max-width:190px}',
+    '#ecw-root select.ecw-xsel:focus{border-color:#3f7afa;box-shadow:0 0 0 2px rgba(63,122,250,.12)}',
+    '#ecw-root .ecw-adopt{width:15px;height:15px;accent-color:#3f7afa;cursor:pointer;vertical-align:middle}',
+    '#ecw-root .ecw-ph:empty::before{content:attr(data-ph);color:#c2cad8;font-size:11.5px;pointer-events:none}',
+    '#ecw-root .ecw-tbl tr.ecw-blockrow td{background:#fdf0f0!important}',
+    '#ecw-root .ecw-tbl tr.ecw-blockrow td:first-child{box-shadow:inset 3px 0 0 #e5484d}',
 
     /* ---- 📊 数据选择弹窗（REQ-01 v6：五层下钻 + 子树搜索 + 已选区逐指标配置年份与跨维度维度）----
        界面形态（弹窗/抽屉/面板）待确认：原型按【🗂】知识库选择弹窗形态实现，
@@ -1075,82 +1103,279 @@
     '报告期内供应商总数为 <b>5,099 家</b>。对于合作供应商，我们制定重大供应商筛选原则，涵盖环境面向、社会面向、' +
     '治理面向和业务四大面向，以及国家、产业及商品三大考量风险。</p>';
 
-  /* ---------- 采集表数据（模板指标名取自《工业富联_ESG信息采集表_定量指标.xlsx》指标名称列；
-     「平台指标」与数值为演示模拟数据） ---------- */
+  /* ---------- 采集表数据（模板指标名 tpl 取自《工业富联_ESG信息采集表_定量指标.docx》；
+     平台指标编码 code / 指标名 ind / 数值 v25·v24 均为演示模拟数据）。
+     首次渲染＝纯机器产出状态（不带任何用户动作标记）：
+       'map'=映射表命中（只读）；'ai'=AI 匹配（top3 候选 cands，默认第一个最高分）；
+       'miss'=未匹配（AI 未找到对应平台指标，名称/编码/数值全空，可手输）。
+     用户动作状态全部由交互产生、不预置：改名/改值/切采纳 → 行尾"已修改"（跨轮持续）；
+     确认循环 → 变更行"已刷新"（仅最新一轮）；「手动输入」未填名称 → 提交被拦截。
+     数据缺口演示：第 10 行（COD）本期无值上期有值；第 5、12 行未匹配全空。 ---------- */
   var COLLECT_ROWS = [
-    { tpl: '披露的温室气体范围1排放量（二氧化碳当量公吨）', ind: '温室气体排放-范围一', v25: '81,607.46', v24: '92,983.81', st: 'ok' },
-    { tpl: '披露的温室气体范围2排放量（二氧化碳当量公吨）', ind: '温室气体排放-范围二', v25: '750,516.01', v24: '746,866.14', st: 'ok' },
-    { tpl: '如是，披露的温室气体范围3排放量（二氧化碳当量公吨）', ind: '温室气体排放-范围三（价值链）', v25: '16,555,532.07', v24: '18,166,382.83', st: 'warn' },
-    { tpl: '温室气体减排资金投入（万元）', ind: '温室气体减排资金投入', v25: '15,467.25', v24: '27,205.55', st: 'ok' },
-    { tpl: '披露的温室气体减排量（二氧化碳当量公吨）', ind: '年度温室气体减排量', v25: '207', v24: '208.6', st: 'ok' },
-    { tpl: '颗粒物（PM）', ind: '颗粒物（PM）排放量', v25: '66.95', v24: '70.21', st: 'ok' },
-    { tpl: '硫氧化物（SOx）', ind: '硫氧化物（SOx）排放量', v25: '8.18', v24: '10.71', st: 'ok' },
-    { tpl: '氮氧化物（NOX）', ind: '氮氧化物（NOx）排放量', v25: '5.14', v24: '8.49', st: 'ok' },
-    { tpl: '挥发性有机物（VOCs）', ind: '挥发性有机物（VOCs）排放量', v25: '100.8', v24: '100.46', st: 'ok' },
-    { tpl: '化学需氧量（COD）', ind: '化学需氧量（COD）排放量', v25: '412.36', v24: '428.51', st: 'ok' },
-    { tpl: '生化需氧量（BOD）', ind: '生化需氧量（BOD）排放量', v25: '87.2', v24: '90.4', st: 'ok' },
-    { tpl: '氨氮（NH3-N）', ind: '氨氮排放量', v25: '35.8', v24: '38.6', st: 'ok' },
-    { tpl: '总氮（TN）', ind: '总氮排放量', v25: '128.4', v24: '132.7', st: 'ok' },
-    { tpl: '总磷（TP）', ind: '总磷排放量', v25: '9.6', v24: '10.2', st: 'ok' },
-    { tpl: '产生的有害废弃物总量（吨）', ind: '有害废弃物产生总量', v25: '24,618.5', v24: '25,872.3', st: 'ok' },
-    { tpl: '产生的无害废弃物总量（吨）', ind: '无害废弃物产生总量', v25: '486,210.7', v24: '502,315.4', st: 'ok' },
-    { tpl: '直接能源总消耗量（吨标准煤）', ind: '直接能源消耗量', v25: '268,432', v24: '279,105', st: 'ok' },
-    { tpl: '间接能源总消耗量（吨标准煤）', ind: '间接能源消耗量', v25: '1,502,884', v24: '1,536,407', st: 'ok' },
-    { tpl: '能源消费总量（吨标准煤）', ind: '综合能源消耗总量', v25: '1,771,316', v24: '1,815,512', st: 'ok' },
-    { tpl: '其中：清洁能源使用量（吨标准煤）', ind: '清洁能源使用量', v25: '503,207', v24: '468,913', st: 'ok' },
-    { tpl: '总能耗强度（吨标煤/万元）', ind: '单位营收综合能耗', v25: '0.0387', v24: '0.0402', st: 'warn' },
-    { tpl: '总耗水量（吨）', ind: '总耗水量', v25: '35,216,804', v24: '34,872,315', st: 'ok' },
-    { tpl: '水资源使用强度（吨/万元）', ind: '单位营收水耗', v25: '0.77', v24: '0.79', st: 'ok' },
-    { tpl: '废弃物循环利用量（吨）', ind: '废弃物循环利用量', v25: '273,532.19', v24: '195,593.11', st: 'ok' },
-    { tpl: '乡村振兴总投入金额（万元）', ind: '乡村振兴投入总额', v25: '3,286.4', v24: '2,915.8', st: 'ok' },
-    { tpl: '乡村振兴惠及人数（人）', ind: '乡村振兴惠及人数', v25: '128,560', v24: '96,420', st: 'ok' },
-    { tpl: '公益慈善、志愿活动等投入资金金额（万元）', ind: '公益慈善及志愿服务投入', v25: '1,053.2', v24: '986.5', st: 'ok' },
-    { tpl: '研发投入金额（万元）', ind: '研发投入金额', v25: '1,115,107.6', v24: '1,063,077.8', st: 'ok' },
-    { tpl: '研发投入占主营业务收入比例（%）', ind: '研发投入占营收比例', v25: '1.24', v24: '1.75', st: 'ok' },
-    { tpl: '报告期末逾期未支付款项的金额（万元）', ind: '逾期未支付款项总额', v25: '0', v24: '128.6', st: 'warn' },
-    { tpl: '逾期未支付中小企业款项金额（万元）', ind: '逾期未支付中小企业款项', v25: '0', v24: '0', st: 'ok' },
-    { tpl: '员工流失率（%）（剔除适龄退休）', ind: '员工流失率（剔除适龄退休）', v25: '16.22', v24: '24.16', st: 'ok' },
-    { tpl: '员工培训覆盖率（%）', ind: '员工培训覆盖率', v25: '100', v24: '100', st: 'ok' },
-    { tpl: '年度培训支出金额（万元）', ind: '年度培训支出', v25: '1,699.1', v24: '1,774.2', st: 'ok' },
-    { tpl: '接受反商业贿赂及反贪污培训的董事百分比（%）', ind: '反贪培训覆盖-董事', v25: '100', v24: '100', st: 'ok' },
-    { tpl: '接受反商业贿赂及反贪污培训的管理层人员百分比（%）', ind: '反贪培训覆盖-管理层', v25: '100', v24: '100', st: 'ok' },
-    { tpl: '接受反商业贿赂及反贪污培训的员工百分比（%）', ind: '反贪培训覆盖-员工', v25: '98.6', v24: '97.2', st: 'ok' }
+    /* ① 映射表·纯自动（预览第 1-2 行） */
+    { tpl: '披露的温室气体范围1排放量（二氧化碳当量公吨）', ind: '温室气体排放-范围一', code: 'E-E-1-1-0001', v25: '81,607.46', v24: '92,983.81', src: 'map' },
+    { tpl: '披露的温室气体范围2排放量（二氧化碳当量公吨）', ind: '温室气体排放-范围二', code: 'E-E-1-1-0002', v25: '750,516.01', v24: '746,866.14', src: 'map' },
+    /* ④ AI匹配·未动（预览第 3 行，top3 默认最高分） */
+    { tpl: '如是，披露的温室气体范围3排放量（二氧化碳当量公吨）', code: 'E-E-1-1-0003', v25: '16,555,532.07', v24: '18,166,382.83', src: 'ai', cands: [
+      { name: '温室气体排放-范围三（价值链）', code: 'E-E-1-1-0003', conf: '0.91' },
+      { name: '温室气体排放总量', code: 'E-E-1-1-0004', conf: '0.37' },
+      { name: '年度温室气体减排量', code: 'E-E-1-3-0002', conf: '0.08' }
+    ] },
+    /* AI匹配·未动（预览第 4 行；换下拉选项后标"已修改"、编码联动） */
+    { tpl: '披露的温室气体减排量（二氧化碳当量公吨）', v25: '207', v24: '208.6', src: 'ai', cands: [
+      { name: '年度温室气体减排量', code: 'E-E-1-3-0002', conf: '0.92' },
+      { name: '温室气体排放总量', code: 'E-E-1-1-0004', conf: '0.44' },
+      { name: '温室气体排放-范围一', code: 'E-E-1-1-0001', conf: '0.11' }
+    ] },
+    /* 未匹配·AI 未找到对应平台指标（预览第 5 行：全空，可手输名称/数值演示） */
+    { tpl: '温室气体减排资金投入（万元）', ind: '', code: '', v25: '', v24: '', src: 'miss' },
+    /* ⑨ 不采纳（预览第 6 行：整行置灰） */
+    { tpl: '颗粒物（PM）', ind: '颗粒物（PM）排放量', code: 'E-E-2-1-0001', v25: '66.95', v24: '70.21', src: 'map' },
+    /* ② 映射表·人工只改本期 */
+    { tpl: '硫氧化物（SOx）', ind: '硫氧化物（SOx）排放量', code: 'E-E-2-1-0002', v25: '8.18', v24: '10.71', src: 'map' },
+    /* ③ 映射表·两期都手填 */
+    { tpl: '氮氧化物（NOX）', ind: '氮氧化物（NOx）排放量', code: 'E-E-2-1-0003', v25: '5.14', v24: '8.49', src: 'map' },
+    /* ⑦ AI匹配·本轮被重匹配刷新（蓝标，仅最新一轮） */
+    { tpl: '挥发性有机物（VOCs）', code: 'E-E-2-1-0004', v25: '100.8', v24: '100.46', src: 'ai', cands: [
+      { name: '挥发性有机物（VOCs）排放量', code: 'E-E-2-1-0004', conf: '0.87' },
+      { name: '无害废弃物产生总量', code: 'E-E-5-1-0002', conf: '0.19' },
+      { name: '氨氮排放量', code: 'E-E-2-2-0003', conf: '0.04' }
+    ] },
+    /* ⑩ 平台缺本期值但有上期值（本期空） */
+    { tpl: '化学需氧量（COD）', ind: '化学需氧量（COD）排放量', code: 'E-E-2-2-0001', v25: '', v24: '428.51', src: 'map' },
+    /* ④ AI匹配·未动（第 2 行） */
+    { tpl: '能源消费总量（吨标准煤）', code: 'E-E-14-1-0001', v25: '1,771,316', v24: '1,815,512', src: 'ai', cands: [
+      { name: '综合能源消耗总量', code: 'E-E-14-1-0001', conf: '0.93' },
+      { name: '直接能源消耗量', code: 'E-E-14-1-0004', conf: '0.35' },
+      { name: '间接能源消耗量', code: 'E-E-14-1-0005', conf: '0.28' }
+    ] },
+    /* ⑧ 未匹配·全空（名称/编码/数值全空，演示跳过写入留空） */
+    { tpl: '生化需氧量（BOD）', ind: '', code: '', v25: '', v24: '', src: 'miss' },
+    /* ① 映射表·纯自动（其余行） */
+    { tpl: '氨氮（NH3-N）', ind: '氨氮排放量', code: 'E-E-2-2-0003', v25: '35.8', v24: '38.6', src: 'map' },
+    { tpl: '总氮（TN）', ind: '总氮排放量', code: 'E-E-2-2-0004', v25: '128.4', v24: '132.7', src: 'map' },
+    { tpl: '总磷（TP）', ind: '总磷排放量', code: 'E-E-2-2-0005', v25: '9.6', v24: '10.2', src: 'map' },
+    { tpl: '产生的有害废弃物总量（吨）', ind: '有害废弃物产生总量', code: 'E-E-5-1-0001', v25: '24,618.5', v24: '25,872.3', src: 'map' },
+    { tpl: '产生的无害废弃物总量（吨）', ind: '无害废弃物产生总量', code: 'E-E-5-1-0002', v25: '486,210.7', v24: '502,315.4', src: 'map' },
+    { tpl: '直接能源总消耗量（吨标准煤）', ind: '直接能源消耗量', code: 'E-E-14-1-0004', v25: '268,432', v24: '279,105', src: 'map' },
+    { tpl: '间接能源总消耗量（吨标准煤）', ind: '间接能源消耗量', code: 'E-E-14-1-0005', v25: '1,502,884', v24: '1,536,407', src: 'map' },
+    { tpl: '其中：清洁能源使用量（吨标准煤）', ind: '清洁能源使用量', code: 'E-E-14-3-0002', v25: '503,207', v24: '468,913', src: 'map' },
+    { tpl: '总能耗强度（吨标煤/万元）', ind: '单位营收综合能耗', code: 'E-E-14-4-0001', v25: '0.0387', v24: '0.0402', src: 'map' },
+    { tpl: '总耗水量（吨）', ind: '总耗水量', code: 'E-E-15-1-0001', v25: '35,216,804', v24: '34,872,315', src: 'map' },
+    { tpl: '水资源使用强度（吨/万元）', ind: '单位营收水耗', code: 'E-E-15-1-0002', v25: '0.77', v24: '0.79', src: 'map' },
+    { tpl: '废弃物循环利用量（吨）', ind: '废弃物循环利用量', code: 'E-E-5-2-0001', v25: '273,532.19', v24: '195,593.11', src: 'map' },
+    { tpl: '乡村振兴总投入金额（万元）', ind: '乡村振兴投入总额', code: 'S-S-1-2-0001', v25: '3,286.4', v24: '2,915.8', src: 'map' },
+    { tpl: '乡村振兴惠及人数（人）', ind: '乡村振兴惠及人数', code: 'S-S-1-2-0002', v25: '128,560', v24: '96,420', src: 'map' },
+    { tpl: '公益慈善、志愿活动等投入资金金额（万元）', ind: '公益慈善及志愿服务投入', code: 'S-S-1-1-0001', v25: '1,053.2', v24: '986.5', src: 'map' },
+    { tpl: '研发投入金额（万元）', ind: '研发投入金额', code: 'G-G-1-1-0001', v25: '1,115,107.6', v24: '1,063,077.8', src: 'map' },
+    { tpl: '研发投入占主营业务收入比例（%）', ind: '研发投入占营收比例', code: 'G-G-1-1-0002', v25: '1.24', v24: '1.75', src: 'map' },
+    { tpl: '报告期末逾期未支付款项的金额（万元）', ind: '逾期未支付款项总额', code: 'G-G-3-2-0001', v25: '0', v24: '128.6', src: 'map' },
+    { tpl: '逾期未支付中小企业款项金额（万元）', ind: '逾期未支付中小企业款项', code: 'G-G-3-2-0002', v25: '0', v24: '0', src: 'map' },
+    { tpl: '员工流失率（%）（剔除适龄退休）', ind: '员工流失率（剔除适龄退休）', code: 'S-S-4-1-0001', v25: '16.22', v24: '24.16', src: 'map' },
+    { tpl: '员工培训覆盖率（%）', ind: '员工培训覆盖率', code: 'S-S-4-2-0001', v25: '100', v24: '100', src: 'map' },
+    { tpl: '年度培训支出金额（万元）', ind: '年度培训支出', code: 'S-S-4-2-0002', v25: '1,699.1', v24: '1,774.2', src: 'map' },
+    { tpl: '接受反商业贿赂及反贪污培训的董事百分比（%）', ind: '反贪培训覆盖-董事', code: 'G-G-2-1-0001', v25: '100', v24: '100', src: 'map' },
+    { tpl: '接受反商业贿赂及反贪污培训的管理层人员百分比（%）', ind: '反贪培训覆盖-管理层', code: 'G-G-2-1-0002', v25: '100', v24: '100', src: 'map' },
+    { tpl: '接受反商业贿赂及反贪污培训的员工百分比（%）', ind: '反贪培训覆盖-员工', code: 'G-G-2-1-0003', v25: '98.6', v24: '97.2', src: 'map' }
   ];
 
-  /* 各行置信度（演示值；< 0.85 的行与 st=warn 对应，橙色提示人工确认） */
-  var WARN_CONFS = ['0.58', '0.72', '0.64'];
-  var COLLECT_CONF = [];
-  (function () {
-    var wi = 0;
-    COLLECT_ROWS.forEach(function (r, i) {
-      COLLECT_CONF.push(r.st === 'warn' ? (WARN_CONFS[wi++] || '0.70') : (0.86 + (i % 12) * 0.01).toFixed(2));
-    });
-  })();
+  /* 匹配来源徽标：映射表=蓝 / AI匹配=橙 / 未匹配=灰 */
+  var COLLECT_SRC = {
+    map: { label: '映射表', cls: 'ecw-srctag-map' },
+    ai: { label: 'AI匹配', cls: 'ecw-srctag-ai' },
+    miss: { label: '未匹配', cls: 'ecw-srctag-miss' }
+  };
 
-  function statusCellOf(d, idx) {
-    if (d.edited) return { tag: 'ok', text: '✓ 已修正' };
-    var c = COLLECT_CONF[idx] || '0.90';
-    return { tag: parseFloat(c) >= 0.85 ? 'ok' : 'warn', text: c };
+  /* 行内标记（状态列·行尾）：已修改（橙）＝用户改过（跨确认轮持续）；已刷新（蓝）＝本轮被重新匹配（仅最新一轮） */
+  function paintRowMarks(tdNo, d) {
+    var box = tdNo.querySelector('.ecw-rowmark');
+    var html = '';
+    if (d.edited) html += '<span class="ecw-rowtag ecw-rowtag-ed">已修改</span>';
+    if (d.refreshed) html += '<span class="ecw-rowtag ecw-rowtag-rf">已刷新</span>';
+    box.innerHTML = html;
   }
 
-  /* Excel 样式表格；editable=true 时「平台指标 / 数值」单元格可直接点击编辑 */
-  function buildXlsTable(editable, from, to) {
+  /* 确认表格（9 列，行尾"状态"列承载已修改/已刷新标记）；editable=true 时：AI 行平台指标名＝
+     top3 下拉（含「✍ 手动输入」，切手输后为空输入框＋占位提示，未填写不能提交）、未匹配行可手输、
+     本期/上期数值可点击编辑、是否采纳可勾选；
+     onEdit(e)＝控件编辑即时上报 {idx, f, v}（f: ind/code/v25/v24/adopt），供确认时收集变更 */
+  function buildXlsTable(editable, from, to, onEdit) {
+    function commit(idx, f, v, tr) {            /* 编辑写回数据＋标记「已修改」＋上报 */
+      var d = collectData[idx];
+      d.edited = true;
+      if (tr) paintRowMarks(tr.children[0], d);
+      if (onEdit) onEdit({ idx: idx, f: f, v: v });
+    }
     var t = el('table', 'ecw-tbl');
     var thead = el('thead');
-    thead.innerHTML = '<tr><th style="width:34px">#</th><th style="width:37%">模板要求字段（提取自模板）</th>' +
-      '<th>平台指标（匹配）</th><th style="width:92px">2025年数值</th><th style="width:64px">置信度</th></tr>';
+    thead.innerHTML = '<tr><th style="width:46px">#</th><th style="width:23%">附件定量指标名</th>' +
+      '<th>平台对应指标名</th><th style="width:100px">平台对应指标编码</th>' +
+      '<th style="width:86px">本期指标数据（2025年）</th><th style="width:86px">上期指标数据（2024年）</th>' +
+      '<th style="width:56px">匹配来源</th><th style="width:46px">是否采纳</th><th style="width:64px">状态</th></tr>';
     t.appendChild(thead);
     var tbody = el('tbody');
     for (var i = from; i < to; i++) {
       (function (idx) {
         var d = collectData[idx];
         var tr = el('tr');
-        tr.innerHTML = '<td>' + (idx + 1) + '</td>' +
-          '<td>' + escapeHtml(d.tpl) + '</td>' +
-          '<td class="ecw-edit" data-i="' + idx + '" data-f="ind"' + (editable ? ' contenteditable="true"' : '') + '>' + escapeHtml(d.ind) + '</td>' +
-          '<td class="ecw-edit" data-i="' + idx + '" data-f="val"' + (editable ? ' contenteditable="true"' : '') + '>' + escapeHtml(d.val) + '</td>';
-        var stc = statusCellOf(d, idx);
-        tr.appendChild(el('td', null, '<span class="' + (stc.tag === 'warn' ? 'ecw-warn-tag' : 'ecw-ok-tag') + '">' + stc.text + '</span>'));
+        tr.setAttribute('data-row', String(idx));
+        if (!d.adopted) tr.className = 'ecw-off';
+
+        /* # */
+        var tdNo = el('td', null, String(idx + 1));
+
+        /* 附件定量指标名（模板原文，只读） */
+        var tdTpl = el('td', null, escapeHtml(d.tpl));
+
+        /* 平台对应指标编码（只读，随下拉联动）——先创建，供下拉 onchange 闭包引用 */
+        var tdCode = el('td', null, d.code ? escapeHtml(d.code) : '<span style="color:#c2cad8">—</span>');
+
+        /* 平台对应指标名：映射表=只读；AI匹配=下拉（含手动输入）；未匹配=手输原文＋未命中标签 */
+        var tdInd = el('td');
+        if (d.src === 'ai' && editable) {
+          /* 下拉与手输两种形态可互切；manual 状态持久——重开表格仍以输入框回显手输名称 */
+          var makeSel = function () {
+            var sel = el('select', 'ecw-xsel');
+            sel.title = 'AI 匹配 top3 候选（含置信度）；选「✍ 手动输入」改为直接输入名称';
+            d.cands.forEach(function (c, ci) {
+              var o = el('option', null, escapeHtml(c.name) + '（' + c.conf + '）');
+              o.value = String(ci);
+              sel.appendChild(o);
+            });
+            var oManual = el('option', null, '✍ 手动输入');
+            oManual.value = 'manual';
+            sel.appendChild(oManual);
+            sel.value = String(d.sel || 0);
+            sel.onchange = function () {
+              if (sel.value === 'manual') {       /* 切为手输输入框：清空候选名，待用户输入 */
+                d.manual = true;
+                d.ind = ''; d.code = '';
+                tdCode.innerHTML = '<span style="color:#c2cad8">—</span>';
+                paintInd();
+                return;
+              }
+              var ci = parseInt(sel.value, 10);
+              d.sel = ci; d.manual = false;
+              d.ind = d.cands[ci].name; d.code = d.cands[ci].code;
+              tdCode.innerHTML = escapeHtml(d.code);
+              commit(idx, 'ind', d.ind, tr);
+            };
+            return sel;
+          };
+          var makeInput = function () {
+            var box = el('div');
+            box.style.cssText = 'display:flex;align-items:center;gap:4px';
+            var inCell = el('div', 'ecw-edit ecw-ph', escapeHtml(d.ind || ''));
+            inCell.contentEditable = 'true';
+            inCell.setAttribute('data-ph', '请输入指标名称');
+            inCell.style.cssText = 'flex:1;min-width:100px;outline:none';
+            inCell.title = '手动输入平台指标名称；未填写不能提交（可点「↩候选」改回下拉，或取消该行采纳）';
+            inCell.onblur = function () {
+              var v = (inCell.innerText || '').replace(/\s+/g, ' ').trim();
+              if (!v) {                           /* 留空＝保持手输待填状态，提交时校验拦截 */
+                inCell.innerHTML = '';
+                return;
+              }
+              d.ind = v;
+              d.code = '';                        /* 手输名称暂无平台编码 */
+              tdCode.innerHTML = '<span style="color:#c2cad8">—</span>';
+              commit(idx, 'ind', v, tr);
+            };
+            var back = el('span', null, '↩候选');
+            back.title = '回到 top3 候选下拉（恢复候选的名称与编码）';
+            back.style.cssText = 'flex-shrink:0;font-size:11px;color:#3f7afa;cursor:pointer';
+            back.onclick = function () {
+              var c = d.cands[d.sel || 0] || d.cands[0];
+              d.manual = false;
+              d.ind = c ? c.name : '';
+              d.code = c ? c.code : '';
+              tdCode.innerHTML = d.code ? escapeHtml(d.code) : '<span style="color:#c2cad8">—</span>';
+              paintInd();
+            };
+            box.appendChild(inCell);
+            box.appendChild(back);
+            setTimeout(function () { inCell.focus(); }, 30);
+            return box;
+          };
+          var paintInd = function () {
+            tdInd.innerHTML = '';
+            tdInd.appendChild(d.manual ? makeInput() : makeSel());
+          };
+          paintInd();
+        } else if (d.src === 'miss' && editable) {
+          tdInd.className = 'ecw-edit ecw-ph ecw-misscell';   /* 「未命中」标签走伪元素，不进入可编辑文本 */
+          tdInd.setAttribute('data-ph', '可手输指标名（可留空）');
+          tdInd.contentEditable = 'true';
+          tdInd.innerText = d.ind == null ? '' : d.ind;
+          tdInd.onblur = function () {
+            var v = (tdInd.innerText || '').replace(/\s+/g, ' ').trim();
+            if (v !== (d.ind == null ? '' : d.ind)) {
+              d.ind = v;
+              commit(idx, 'ind', v, tr);
+              tdInd.innerText = v;
+            }
+          };
+        } else {
+          tdInd.innerHTML = escapeHtml(d.ind);
+          if (d.src === 'miss') tdInd.className = 'ecw-misscell';
+        }
+
+        /* 本期 / 上期数值：可直接点击编辑（人工填写不会被后续匹配覆盖） */
+        function valTd(f) {
+          var td = el('td', 'ecw-edit', escapeHtml(d[f] == null ? '' : d[f]));
+          if (editable) {
+            td.contentEditable = 'true';
+            td.setAttribute('data-i', String(idx));
+            td.setAttribute('data-f', f);
+            td.onblur = function () {
+              var v = (td.innerText || '').replace(/\s+/g, ' ').trim();
+              if (v !== (d[f] == null ? '' : d[f])) {
+                d[f] = v;
+                commit(idx, f, v, tr);
+                td.innerText = v;
+              }
+            };
+          }
+          return td;
+        }
+
+        /* 匹配来源徽标 */
+        var sm = COLLECT_SRC[d.src] || COLLECT_SRC.map;
+        var tdSrc = el('td', null, '<span class="ecw-srctag ' + sm.cls + '">' + sm.label + '</span>');
+
+        /* 是否采纳：默认勾选，取消后整行置灰 */
+        var tdAdopt;
+        if (editable) {
+          tdAdopt = el('td');
+          var cb = el('input', 'ecw-adopt');
+          cb.type = 'checkbox';
+          cb.checked = d.adopted;
+          cb.title = '取消勾选＝该行不参与填充';
+          cb.onchange = function () {
+            d.adopted = cb.checked;
+            tr.classList.toggle('ecw-off', !cb.checked);
+            commit(idx, 'adopt', cb.checked ? '是' : '否', tr);
+          };
+          tdAdopt.appendChild(cb);
+        } else {
+          tdAdopt = el('td', null, d.adopted
+            ? '<span class="ecw-ok-tag">✓</span>'
+            : '<span style="color:#98a0ad">—</span>');
+        }
+
+        /* 状态列（行尾）：已修改 / 已刷新 */
+        var tdMark = el('td', null, '<span class="ecw-rowmark"></span>');
+        paintRowMarks(tdMark, d);
+
+        tr.appendChild(tdNo);
+        tr.appendChild(tdTpl);
+        tr.appendChild(tdInd);
+        tr.appendChild(tdCode);
+        tr.appendChild(valTd('v25'));
+        tr.appendChild(valTd('v24'));
+        tr.appendChild(tdSrc);
+        tr.appendChild(tdAdopt);
+        tr.appendChild(tdMark);
         tbody.appendChild(tr);
       })(i);
     }
@@ -1159,15 +1384,22 @@
   }
 
   function collectDocHtml() {
-    var rows = collectData.map(function (d, i) {
-      return '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(d.tpl) + '</td><td>' + escapeHtml(d.ind) + '</td><td>' + escapeHtml(d.val) + '</td></tr>';
+    var n = 0;
+    var rows = collectData.filter(function (d) { return d.adopted; }).map(function (d) {
+      n++;
+      return '<tr><td>' + n + '</td><td>' + escapeHtml(d.tpl) + '</td><td>' + escapeHtml(d.ind) + '</td>' +
+        '<td>' + escapeHtml(d.code || '—') + '</td>' +
+        '<td>' + escapeHtml(d.v25 || '') + '</td><td>' + escapeHtml(d.v24 || '') + '</td>' +
+        '<td>' + escapeHtml((COLLECT_SRC[d.src] || COLLECT_SRC.map).label) + '</td></tr>';
     }).join('');
     return '<h2 style="font-family:微软雅黑">上交所《2026年FII可持续发展报告》定量指标信息采集表（2025年数据）</h2>' +
       '<p style="color:#888">单位：集团合并口径 · 由AI自动填充，请人工核实</p>' +
       '<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-family:微软雅黑;font-size:12px">' +
-      '<tr style="background:#f5f7fb"><th>序号</th><th>模板要求字段</th><th>平台指标（映射）</th><th>2025年数值</th></tr>' +
+      '<tr style="background:#f5f7fb"><th>序号</th><th>附件定量指标名</th><th>平台对应指标名</th><th>平台对应指标编码</th>' +
+      '<th>本期指标数据（2025年）</th><th>上期指标数据（2024年）</th><th>匹配来源</th></tr>' +
       rows + '</table>' +
-      '<p style="color:#888;font-size:11px">注：数值由平台指标库自动抓取，与平台录入数据一致（目标100%准确率，请务必人工复核）。</p>';
+      '<p style="color:#888;font-size:11px">注：数值由平台指标库按编码自动抓取（未匹配行的人工填写值原样保留），' +
+      '与平台录入数据一致（目标100%准确率，请务必人工复核）。</p>';
   }
 
   /* ================================================================
@@ -1441,34 +1673,42 @@
     });
   }
 
-  /* ---------- 指标信息采集表 Agent（新流程：模板 → 可选提示词 → 提取 → 表格内修改 → 确认填充） ---------- */
+  /* ---------- 指标信息采集表 Agent（流程：上传 Word 模板 → 可选映射表/提示词 → 提取 →
+     确认表核对修改（可循环） → 确认后自动填充生成 Word） ---------- */
   var PREVIEW_N = 6;                 /* 表格过长时聊天内仅预览的行数 */
   var collectStage = 'await-file';   /* await-file | await-extract | review | filling */
   var collectData = [];              /* 当前会话的匹配数据（含人工编辑） */
+  var collectMappingUploaded = false;/* 用户是否已上传三列映射表（.xlsx） */
 
   function resetCollect() {
     collectStage = 'await-file';
     collectData = [];
+    collectMappingUploaded = false;
   }
 
   function collectIntro() {
     resetCollect();
     addAgent({
-      text: '📋 你好，我是**上交所定量指标采集表助手**，流程如下：\n\n**1. 提供模板文档** —— 通过 📎 上传或 🗂 从知识库引用；\n**2. 输入提示词（可选）** —— 发送后 AI 提取文档中所有需填写的**定量指标**，并自动匹配平台指标与数值；\n**3. 表格核对** —— 结果以表格展示在对话中（过长仅预览部分行），点击可放大查看完整表格并**直接修改**；\n**4. 确认生成** —— 有修改时确认将返回更新后的结果；无修改时确认即自动填充数值并生成报告文件下载。\n\n⚠️ 本期仅支持上交所《2026年FII可持续发展报告》模板；模板指标变更时需重新确认映射关系。',
+      text: '📋 你好，我是**上交所定量指标采集表助手**，按以下四步完成填充：\n\n**1. 上传 Word 模板（必传）** —— `.docx` 格式，通过 📎 本地上传或 🗂 从知识库引用；\n**2. 上传映射表（可选）** —— `.xlsx` 三列：`附件定量指标名 / 平台对应指标名 / 平台对应指标编码`；不上传则自动使用**全局映射表＋AI 匹配**；\n**3. 确认表核对修改** —— 匹配结果以表格展示，可修改指标名、数值、是否采纳，确认后可循环核对；\n**4. 确认后自动填充** —— 按模板原格式填充生成 Word 文件下载。\n\n💡 首次使用**无需准备映射表**：确认过的映射关系会自动沉淀到全局映射库，后续直接复用。\n\n⚠️ 本期仅支持上交所《2026年FII可持续发展报告》模板；模板指标变更时需重新确认映射关系。',
       chips: [
-        { label: '上传模板（模拟）', act: function () {
-            addUser('📎 《工业富联_ESG信息采集表_定量指标.xlsx》（模板）');
+        { label: '📎 上传模板（模拟）', act: function () {
+            addUser('📎 《工业富联_ESG信息采集表_定量指标.docx》（模板）');
             awaitPrompt();
+          } },
+        { label: '📎 上传映射表（可选·模拟）', act: function () {
+            addUser('📎 《指标映射表-三列.xlsx》（映射表）');
+            collectMappingUploaded = true;
+            addSystem('已收到映射表，匹配时将优先使用');
           } }
       ]
     });
   }
 
-  /* 模板已提供 → 等待可选提示词 */
+  /* 模板已提供 → 等待可选提示词（或继续补传映射表） */
   function awaitPrompt() {
     collectStage = 'await-extract';
     addAgent({
-      text: '模板文档已收到 ✅\n\n可输入**提示词**（可选，如：仅提取定量指标、按模板顺序输出），发送后开始提取；也可直接点击下方按钮开始。',
+      text: '模板文档已收到 ✅\n\n可输入**提示词**（可选，如：仅提取定量指标、按模板顺序输出），或再通过 📎 补充上传三列映射表（.xlsx）；也可直接点击下方按钮开始提取。',
       chips: [
         { label: '直接开始提取', act: function () { startExtract(''); } }
       ]
@@ -1482,29 +1722,54 @@
     await sleep(700);
     if (stale(s)) return;
     hideTyping();
-    var warnN = 0;
-    COLLECT_ROWS.forEach(function (r) { if (r.st === 'warn') warnN++; });
+    var mapN = 0, aiN = 0, missN = 0;
+    COLLECT_ROWS.forEach(function (r) {
+      if (r.src === 'map') mapN++;
+      else if (r.src === 'ai') aiN++;
+      else missN++;
+    });
     var steps = [
       { label: '解析模板文档，提取所有需填写的定量指标', dur: 1000, sub: ['共提取 ' + COLLECT_ROWS.length + ' 项定量指标'] },
-      { label: '从平台指标库匹配对应指标并读取数值', dur: 1100, sub: ['置信度 ≥ 0.85：' + (COLLECT_ROWS.length - warnN) + ' 项 · < 0.85：' + warnN + ' 项（建议人工确认）'] }
+      { label: '合并映射关系（' + (collectMappingUploaded ? '用户上传映射表＋全局映射表' : '全局映射表') + '，命中 ' + (mapN + aiN) + ' 项）', dur: 900, sub: [
+        collectMappingUploaded ? '用户映射表命中 ' + Math.max(mapN - 2, 0) + ' 项 · 全局映射表补充命中 2 项' : '全局映射表命中 ' + mapN + ' 项',
+        'AI 匹配 ' + aiN + ' 项（附 top3 候选） · 未命中 ' + missN + ' 项'
+      ] },
+      { label: '按平台指标编码批量获取本期与上期数据', dur: 1000, sub: ['2025年 / 2024年 两期数值 · ' + (mapN + aiN) + '/' + COLLECT_ROWS.length + ' 项获取成功'] }
     ];
     if (prompt) steps.splice(1, 0, { label: '结合提示词要求', dur: 700, sub: ['提示词：' + prompt] });
     await addProgress('提取指标并匹配平台数据', steps);
     if (stale(s)) return;
     endSession(s);
     collectData = COLLECT_ROWS.map(function (r) {
-      return { tpl: r.tpl, ind: r.ind, val: r.v25, st: r.st, edited: false };
+      return {
+        tpl: r.tpl, src: r.src,
+        ind: r.ind != null ? r.ind : (r.cands ? r.cands[0].name : ''),
+        code: r.code != null ? r.code : (r.cands ? r.cands[0].code : ''),
+        v25: r.v25 || '', v24: r.v24 || '',
+        cands: r.cands || null, sel: r.sel || 0, manual: !!r.manual,
+        edited: !!r.edited, refreshed: !!r.refreshed, adopted: r.adopted !== false
+      };
     });
     showReviewTable(false);
   }
 
   /* 聊天内预览卡片（过长仅显示前 PREVIEW_N 行，点击放大完整表格） */
-  function showReviewTable(updated) {
-    addAgent({
-      text: updated
-        ? '已按你的修改更新匹配结果 ✅（修改行标注「已修正」）。请再次核对：仍有修改可继续编辑确认；**无修改时点击【确认】即开始填充**。'
-        : '匹配结果如下，请核对：**「平台指标」与「数值」可直接点击修改**；有修改点【确认】我将返回更新结果，无修改点【确认】即开始填充。'
-    });
+  /* updated＝按本轮修改刷新返回；returned＝无新改但因存在历史修改而返回全量结果供最终确认 */
+  function showReviewTable(updated, returned) {
+    var editedRows = collectData.filter(function (d) { return d.edited; });
+    var everEdited = editedRows.length > 0;
+    var text;
+    if (updated) {
+      text = '已按你的修改更新（变更行标**「已刷新」**，人工数值不会被覆盖）。请再次核对：仍有修改可继续编辑后点【确认】，我会再次返回全部结果；' +
+        '**核对无误请点下方【✅ 确认无误，开始填充】**。';
+    } else if (returned) {
+      text = '已返回全部确认结果（共 ' + collectData.length + ' 项，其中已修改 ' + editedRows.length + ' 项）。仍需修改请打开完整表格编辑后点【确认】；' +
+        '**核对无误请点下方【✅ 确认无误，开始填充】**。';
+    } else {
+      text = '匹配结果如下，请核对：**平台指标名可选下拉或手输、本期/上期数值可直接点击修改、取消勾选＝该行不填充**；' +
+        '修改后点【确认】我会重新匹配并返回全部结果；全程无修改时【确认】直接开始填充。';
+    }
+    addAgent({ text: text });
     var row = el('div', 'ecw-row ecw-agent');
     var av = el('div', 'ecw-mavatar', agentEmoji());
     var card = el('div', 'ecw-card');
@@ -1520,10 +1785,16 @@
       card.appendChild(more);
     }
     var foot = el('div', 'ecw-mfoot');
-    foot.appendChild(el('span', 'ecw-mfhint', '「平台指标 / 2025年数值」可直接编辑'));
+    foot.appendChild(el('span', 'ecw-mfhint', '完整表格内：指标名下拉/手输 · 人工数值不会被覆盖 · 未匹配行可只填数值'));
     var bOpen = el('button', 'ecw-btn', '查看/编辑完整表格');
     bOpen.onclick = openFullTable;
     foot.appendChild(bOpen);
+    /* 存在过修改：填充只能经此显式终确按钮触发，弹窗【确认】一律返回结果 */
+    if (everEdited) {
+      var bFinal = el('button', 'ecw-btn ecw-solid', '✅ 确认无误，开始填充');
+      bFinal.onclick = fillCollect;
+      foot.appendChild(bFinal);
+    }
     card.appendChild(foot);
     row.appendChild(av);
     row.appendChild(card);
@@ -1531,19 +1802,27 @@
     scrollBottom();
   }
 
-  /* 完整表格弹窗（可编辑；确认时读取修改：有修改 → 返回更新结果；无修改 → 开始填充） */
+  /* 完整表格弹窗（可编辑；编辑即时记录：有修改 → 确认返回更新结果；无修改 → 开始填充） */
   function openFullTable() {
     if (busy || collectStage !== 'review') return;
+    var edits = [];                       /* 本轮编辑 {idx,f,v}，按 idx+f 去重（后改覆盖先改） */
+    function onEdit(e) {
+      var found = null;
+      edits.forEach(function (x) { if (x.idx === e.idx && x.f === e.f) found = x; });
+      if (found) found.v = e.v; else edits.push(e);
+    }
     var mask = el('div', 'ecw-kbmask');
     var dlg = el('div', 'ecw-bigdlg');
     var h = el('div', 'ecw-bigh', '📊 指标匹配结果 · 完整表格（共 ' + collectData.length + ' 项）<button title="关闭">✕</button>');
     var b = el('div', 'ecw-bigb');
-    b.appendChild(el('div', 'ecw-xlshint', '💡 直接点击「平台指标」或「2025年数值」单元格即可修改；修改后点击【确认】将返回更新结果，未修改点击【确认】则开始填充数值并生成报告。'));
-    b.appendChild(buildXlsTable(true, 0, collectData.length));
+    b.appendChild(el('div', 'ecw-xlshint',
+      '💡 平台指标名：**映射表**行只读、**AI匹配**行可从 top3 下拉选择或「✍ 手动输入」（未填写不能提交）、**未匹配**行可直接手输；' +
+      '人工填写的数值不会被后续匹配覆盖；未匹配行可只填数值。取消勾选「是否采纳」＝该行不参与填充。'));
+    b.appendChild(buildXlsTable(true, 0, collectData.length, onEdit));
     var f = el('div', 'ecw-bigf');
     var warn = el('span', 'ecw-mfhint');
     var bCancel = el('button', 'ecw-btn', '取消');
-    var bOk = el('button', 'ecw-btn ecw-solid', '确认，开始填充');
+    var bOk = el('button', 'ecw-btn ecw-solid', '确认');
     f.appendChild(warn);
     f.appendChild(bCancel);
     f.appendChild(bOk);
@@ -1558,76 +1837,90 @@
     h.querySelector('button').onclick = close;
     bCancel.onclick = close;
 
-    function collectEdits() {
-      var edits = [];
-      Array.prototype.forEach.call(dlg.querySelectorAll('td.ecw-edit'), function (cell) {
-        var idx = +cell.getAttribute('data-i');
-        var fld = cell.getAttribute('data-f');
-        var v = (cell.innerText || '').replace(/\s+/g, ' ').trim();
-        if (v && v !== collectData[idx][fld]) edits.push({ idx: idx, f: fld, v: v });
-      });
-      return edits;
-    }
     bOk.onclick = function () {
-      var edits = collectEdits();
+      /* 校验：切了「手动输入」但未填名称的采纳行，阻止提交（填名称 / ↩候选 / 取消采纳 三选一） */
+      b.querySelectorAll('tr.ecw-blockrow').forEach(function (n) { n.classList.remove('ecw-blockrow'); });
+      var blocked = [];
+      collectData.forEach(function (d, i) {
+        if (d.adopted !== false && d.src === 'ai' && d.manual && !(d.ind || '').replace(/\s+/g, '')) blocked.push(i);
+      });
+      if (blocked.length) {
+        warn.style.color = '#e5484d';
+        warn.textContent = '第 ' + blocked.map(function (i) { return i + 1; }).join('、') +
+          ' 行已选「手动输入」但未填写指标名称：请输入、点「↩候选」改回下拉，或取消该行采纳';
+        blocked.forEach(function (i) {
+          var trB = b.querySelector('tr[data-row="' + i + '"]');
+          if (trB) trB.classList.add('ecw-blockrow');
+        });
+        return;
+      }
+      warn.textContent = '';
       close();
+      /* 只要本次任务存在过修改，点【确认】一律返回全量结果供核对；填充仅经结果卡【✅ 确认无误，开始填充】 */
       if (edits.length) applyEdits(edits);
+      else if (collectData.some(function (d) { return d.edited; })) showReviewTable(false, true);
       else fillCollect();
     };
   }
 
-  /* 人工修改后：AI 返回更新后的匹配结果（可继续修改或确认） */
+  /* 人工修改后：AI 重新匹配变更行并返回更新后的表（可继续修改或确认）。
+     数值/勾选已在控件事件里即时写回 collectData；此处仅刷新「已刷新」标记：
+     清掉上一轮的全部 refreshed（仅最新一轮），被本轮修改的行设 refreshed（edited 跨轮保留） */
   async function applyEdits(edits) {
     var s = startSession();
-    showTyping('正在按修改更新匹配结果…');
+    showTyping('正在重新匹配变更行…');
     await sleep(700);
     if (stale(s)) return;
     hideTyping();
+    var FIELD_LABEL = { ind: '平台指标名', code: '平台编码', v25: '本期数值', v24: '上期数值', adopt: '是否采纳' };
     var subs = edits.slice(0, 4).map(function (e) {
-      return '第' + (e.idx + 1) + '行 ' + (e.f === 'ind' ? '平台指标 → ' + e.v : '数值 → ' + e.v);
+      return '第' + (e.idx + 1) + '行 ' + (FIELD_LABEL[e.f] || e.f) + ' → ' + e.v;
     });
-    if (edits.length > 4) subs.push('…共 ' + edits.length + ' 处修改');
-    await addProgress('按人工修改更新匹配', [
-      { label: '按修改更新映射关系与数值（' + edits.length + ' 处）', dur: 900, sub: subs },
-      { label: '重新校验平台指标数值', dur: 700 }
+    if (edits.length > 4) subs.push('…共 ' + edits.length + ' 处变更');
+    await addProgress('重新匹配变更行', [
+      { label: '按修改重新匹配并更新映射关系（' + edits.length + ' 处变更）', dur: 900, sub: subs },
+      { label: '人工填写的数值原样保留，不重新抓取', dur: 700 }
     ]);
     if (stale(s)) return;
     endSession(s);
-    edits.forEach(function (e) {
-      collectData[e.idx][e.f] = e.v;
-      collectData[e.idx].edited = true;
-    });
+    collectData.forEach(function (d) { d.refreshed = false; });   /* 蓝标仅保留最新一轮 */
+    edits.forEach(function (e) { collectData[e.idx].refreshed = true; });
     showReviewTable(true);
   }
 
-  /* 确认无修改后：抓取数值填充模板，生成报告文件返回聊天窗口 */
+  /* 确认无修改后：抓取两期数值填充模板，生成 Word 文件返回聊天窗口 */
   async function fillCollect() {
     var s = startSession();
     collectStage = 'filling';
-    showTyping('正在填充数值并生成报告…');
+    showTyping('正在按确认结果填充并生成 Word…');
     await sleep(600);
     if (stale(s)) return;
     hideTyping();
-    var editedN = 0;
-    collectData.forEach(function (d) { if (d.edited) editedN++; });
-    await addProgress('自动填充并生成报告', [
-      { label: '锁定确认后的映射关系（' + collectData.length + ' 项' + (editedN ? ' · 含人工修正 ' + editedN + ' 项' : '') + '）', dur: 700 },
-      { label: '从平台指标库抓取 2025 年度数值', dur: 1000, sub: [collectData.length + ' / ' + collectData.length + ' 项获取成功'] },
+    var total = collectData.length, adoptN = 0, editedN = 0, missN = 0, skipN = 0;
+    collectData.forEach(function (d) {
+      if (!d.adopted) { skipN++; return; }
+      adoptN++;
+      if (d.edited) editedN++;
+      if (d.src === 'miss') missN++;
+    });
+    await addProgress('自动填充并生成 Word', [
+      { label: '锁定确认后的映射关系（' + total + ' 项·含人工修正 ' + editedN + ' 项·未匹配 ' + missN + ' 项不沉淀）', dur: 700 },
+      { label: '从平台指标库抓取 2025 / 2024 年度数值', dur: 1000, sub: [adoptN + ' / ' + total + ' 项参与填充（不采纳 ' + skipN + ' 项跳过）· 人工填写值原样保留'] },
       { label: '按模板原格式填充，生成 Word 文件', dur: 800 }
     ]);
     if (stale(s)) return;
     endSession(s);
     addFileCard({
-      name: '工业富联_ESG信息采集表_定量指标（已填充2025年数据）.docx',
-      sub: 'Word 格式 · 与原模板格式一致 · 定量指标已全部填充',
+      name: '工业富联_ESG信息采集表_定量指标（已填充）.docx',
+      sub: 'Word 格式 · 与原模板格式一致 · 本期/上期两列已按确认结果填充',
       btn: '⬇ 下载文件',
-      note: '填充数值与平台录入数据一致（目标100%准确率，**请人工复核**）。',
+      note: '共 ' + total + ' 项 · 采纳 ' + adoptN + ' 项（含人工修正 ' + editedN + '）· 无映射 ' + missN + ' 项（仅人工填写值写入）· 不采纳 ' + skipN + ' 项（留空未写入）。填充数值与平台录入数据一致（目标100%准确率，**请人工复核**）。',
       onDownload: function () {
-        downloadWord('工业富联_ESG信息采集表_定量指标（已填充2025年数据）.doc', collectDocHtml());
+        downloadWord('工业富联_ESG信息采集表_定量指标（已填充）.doc', collectDocHtml());
       }
     });
     addAgent({
-      text: '📄 报告已生成 ✅ 同时，本次确认的**指标映射关系已自动存入知识库**「上交所定量指标信息采集表」文件夹，后续可直接复用，无需重新匹配。',
+      text: '📄 填充完成 ✅ 统计：共 **' + total + '** 项 · 采纳 **' + adoptN + '** 项 · 无映射 **' + missN + '** 项 · 不采纳 **' + skipN + '** 项。\n\n**映射关系已同步**：全局映射库 · 知识库映射列表（本次模板记录已更新）· 全局指标映射总表已刷新。后续可直接复用，无需重新匹配。',
       chips: [
         { label: '重新匹配模板', act: collectIntro },
         { label: '⟳ 开启新对话', act: newChat }
@@ -1671,11 +1964,16 @@
     if (collectStage === 'await-file') {
       if (/模板|上传|引用|重新/.test(text)) return collectIntro();
       return addAgent({
-        text: '请先提供**模板文档**：点击输入框左下 📎 上传，或 🗂 从知识库引用；也可点击下方按钮模拟上传。',
+        text: '请先上传** Word 模板**（.docx，必传）：点击输入框左下 📎 本地上传，或 🗂 从知识库引用；也可点击下方按钮模拟上传。三列映射表（.xlsx）为可选，可稍后补充。',
         chips: [
-          { label: '上传模板（模拟）', act: function () {
-              addUser('📎 《工业富联_ESG信息采集表_定量指标.xlsx》（模板）');
+          { label: '📎 上传模板（模拟）', act: function () {
+              addUser('📎 《工业富联_ESG信息采集表_定量指标.docx》（模板）');
               awaitPrompt();
+            } },
+          { label: '📎 上传映射表（可选·模拟）', act: function () {
+              addUser('📎 《指标映射表-三列.xlsx》（映射表）');
+              collectMappingUploaded = true;
+              addSystem('已收到映射表，匹配时将优先使用');
             } }
         ]
       });
@@ -1684,7 +1982,7 @@
     if (collectStage === 'review') {
       if (/重新|模板/.test(text)) return collectIntro();
       return addAgent({
-        text: '请在表格中操作：点击【📋 查看/编辑完整表格】打开面板，**直接点击单元格修改**「平台指标」或「数值」；修改后点【确认】我将返回更新结果，未修改点【确认】即开始填充。',
+        text: '请在表格中操作：点击【查看/编辑完整表格】打开面板——平台指标名**下拉选择或手输**、**本期/上期数值直接点击修改**、取消**是否采纳**勾选＝该行不填充。修改后点【确认】我将重新匹配并返回全部结果；**只要本次任务存在过修改，点【确认】都会先返回结果供你核对，核对无误请点结果卡上的【✅ 确认无误，开始填充】**；全程零修改时【确认】直接填充。',
         chips: [
           { label: '查看/编辑完整表格', act: openFullTable },
           { label: '重新匹配模板', act: collectIntro }
@@ -1697,17 +1995,43 @@
     });
   }
 
-  /* 📎 附件上传（真实文件选择，支持多选；演示按模式触发对应流程） */
+  /* 📎 附件上传（真实文件选择，支持多选；演示按模式触发对应流程）。
+     collect 模式两层校验：.docx=模板 → awaitPrompt；.xlsx=映射表 → 仅提示优先使用；
+     其他扩展名 → 系统提示仅支持 Word 模板与映射表 */
   function handleFiles(fileList) {
     if (busy || !fileList.length) return;
-    var names = [];
+    if (state.mode !== 'collect') {
+      var names = [];
+      Array.prototype.forEach.call(fileList, function (f) {
+        names.push('📎 《' + f.name + '》（' + fmtSize(f.size) + '）');
+      });
+      addUser(names.join('\n'));
+      if (state.mode === 'report') startReportDemo();
+      else extractDemo();
+      return;
+    }
+    var gotTpl = false, gotMap = false, gotBad = false;
     Array.prototype.forEach.call(fileList, function (f) {
-      names.push('📎 《' + f.name + '》（' + fmtSize(f.size) + '）');
+      var isDocx = /\.docx$/i.test(f.name);
+      var isXlsx = /\.xlsx$/i.test(f.name);
+      if (isDocx) {
+        gotTpl = true;
+        addUser('📎 《' + f.name + '》（' + fmtSize(f.size) + '）（模板）');
+      } else if (isXlsx) {
+        gotMap = true;
+        addUser('📎 《' + f.name + '》（' + fmtSize(f.size) + '）（映射表）');
+      } else {
+        gotBad = true;
+      }
     });
-    addUser(names.join('\n'));
-    if (state.mode === 'collect') awaitPrompt();
-    else if (state.mode === 'report') startReportDemo();
-    else extractDemo();
+    if (gotMap) {
+      collectMappingUploaded = true;
+      addSystem('已收到映射表，匹配时将优先使用');
+    }
+    if (gotBad) {
+      addSystem('信息采集表模式仅支持 Word 模板（.docx）与映射表（.xlsx）', 'warn');
+    }
+    if (gotTpl && collectStage === 'await-file') awaitPrompt();
   }
 
   /* ---- 🗂 知识库选择：读取知识库页面的目录（localStorage kb-files-v1）+ 指标映射表 ---- */
@@ -1758,6 +2082,7 @@
     var sections = [
       { name: '知识库文件', node: tree, open: true },
       { name: '信息采集指标映射表', node: { folders: [], files: [
+        { name: '全局指标映射总表', tag: '系统维护' },
         { name: '指标映射表-2025确认版.xlsx', tag: '采集表模板' },
         { name: '指标映射表-2026FII草稿.xlsx', tag: '采集表模板' }
       ] }, open: true }
