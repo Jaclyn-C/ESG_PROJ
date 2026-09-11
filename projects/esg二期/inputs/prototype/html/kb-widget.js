@@ -4,8 +4,9 @@
  * 1. 侧边栏改为三个菜单：
  *    · ▾ 最佳案例（二级：指标最佳高分/评级回应案例、案例管理）
  *    · ▸ 知识库文件（二级/三级…＝动态文件夹树，支持无限层级）
- *    · 信息采集指标映射表（置顶「📌 全局指标映射总表」系统维护记录：仅查看/下载、
- *      不可删除；其余按模板记录【查看】三列明细浮窗/【下载】/【删除】）
+ *    · 信息采集指标映射表（置顶「📌 全局指标映射总表」固定存在记录：初始为空仅三列列头，
+ *      可预览/下载/重置（重置清空内容并联动清空智能体全局映射库）、不可删除；
+ *      其余按模板记录【预览】三列明细浮窗/【下载】/【删除】）
  * 2. 知识库文件视图：搜索表单（el-form flex flex-wrap items-center gap-3）
  *    右侧新增「新建文件」「新建文件夹」按钮；面包屑导航；文件列表。
  * 3. 新建文件：本地选择文件 + 标签 + 开放范围（【＋ 添加人员】弹出"选择用户"窗口：
@@ -508,10 +509,12 @@
 
   /* ---- 信息采集指标映射表 ----
      列表列：映射表文件 / 关联模板 / 指标映射数 / 确认状态 / 更新时间 / 操作。
-     置顶特殊记录「全局指标映射总表」（📌＋特殊底色，系统维护，仅【查看】【下载】，无删除）；
-     其余按模板的记录：【查看】【下载】【删除】（删除需 confirm，仅普通记录）。
-     【查看】弹出三列明细浮窗：附件定量指标名 / 平台对应指标名 / 平台对应指标编码；
-     全局总表行数多，仅渲染前 20 行＋「…共 N 条」。 */
+     置顶特殊记录「全局指标映射总表」（固定存在：初始为空仅三列列头，确认任务后自动积累；
+     【预览】【下载】【重置】——重置清空数据行（表结构保留）并联动清空智能体全局映射库，二次确认）；
+     其余按模板的记录：【预览】【下载】【删除】（删除需 confirm，仅普通记录）。
+     【预览】弹出三列明细浮窗：附件定量指标名 / 平台对应指标名 / 平台对应指标编码；
+     全局总表行数多，仅渲染前 20 行＋「…共 N 条」；空表显示"暂无映射数据"提示。 */
+  var MAP_GLOBAL_TIME = '2026-09-10';   /* 全局总表最近更新时间（重置后刷新） */
   var MAP_GLOBAL = [
     ['披露的温室气体范围1排放量（二氧化碳当量公吨）', '温室气体排放-范围一', 'E-E-1-1-0001'],
     ['披露的温室气体范围2排放量（二氧化碳当量公吨）', '温室气体排放-范围二', 'E-E-1-1-0002'],
@@ -562,7 +565,7 @@
     '<div style="font-size:15px;font-weight:600;color:#133368;margin-bottom:12px">信息采集指标映射表</div>' +
     '<div id="kbm-list"></div>' +
     '<div style="font-size:11.5px;color:#98a0ad;margin-top:8px">说明：采集表 Agent 确认的映射关系会自动存入此列表，' +
-    '并同步刷新置顶的「📌 全局指标映射总表」（系统维护，不可删除），供后续年份复用。</div>' +
+    '并同步刷新置顶的「📌 全局指标映射总表」（固定存在：初始为空仅列头；可预览/下载/重置，重置清空内容并同步清空智能体全局映射库），供后续年份复用。</div>' +
     '</div></div></div>';
 
   /* 三列明细查看浮窗（底部【关闭】；全局总表只渲染前 20 行＋「…共 N 条」） */
@@ -584,6 +587,7 @@
     });
     t.appendChild(tb);
     b.appendChild(t);
+    if (!rows.length) b.appendChild(el('div', 'kbd-cempty', '暂无映射数据——确认采集表任务后自动积累；重置后表结构保留（三列）'));
     if (rows.length > MAX) b.appendChild(el('div', 'kbd-cempty', '…共 ' + rows.length + ' 条（原型仅展示前 ' + MAX + ' 条）'));
     var fbar = el('div', 'kbd-f');
     var close = el('button', 'el-button el-button--primary', '<span>关闭</span>');
@@ -605,19 +609,27 @@
       '<th>确认状态</th><th>更新时间</th><th style="width:150px">操作</th></tr></thead>';
     var tb = el('tbody');
 
-    /* 置顶：全局指标映射总表（系统维护，仅查看/下载，无删除） */
+    /* 置顶：全局指标映射总表（固定存在，初始为空仅列头；预览/下载/重置，无删除） */
     var tg = el('tr');
     tg.style.background = '#f7f9fd';
     tg.innerHTML =
       '<td><span style="font-weight:600;color:#133368">📌 全局指标映射总表</span></td>' +
       '<td>全局</td><td>' + MAP_GLOBAL.length + ' 项</td>' +
-      '<td><span class="kb-tag c1">系统维护</span></td><td>2026-09-10</td>' +
-      '<td><span class="kbf-op op-v">查看</span><span class="kbf-op op-d">下载</span></td>';
+      '<td><span class="kb-tag c1">系统维护</span></td><td>' + MAP_GLOBAL_TIME + '</td>' +
+      '<td><span class="kbf-op op-v">预览</span><span class="kbf-op op-d">下载</span>' +
+      '<span class="kbf-op" style="color:#d97a00">重置</span></td>';
     tg.querySelector('.op-v').onclick = function () { openMapDialog('全局指标映射总表 · 明细', MAP_GLOBAL); };
     tg.querySelector('.op-d').onclick = function () { toast('⬇ 全局指标映射总表已开始下载（原型提示）'); };
+    tg.querySelectorAll('.kbf-op')[2].onclick = function () {
+      if (!confirm('确认清空全局映射表？清空后不可恢复。\n重置将同步清空智能体全局映射库，之后匹配将全部依赖上传映射表与 AI 匹配。')) return;
+      MAP_GLOBAL = [];
+      MAP_GLOBAL_TIME = '2026-09-11';
+      renderMap();
+      toast('全局映射表已重置：内容已清空（表结构保留），智能体全局映射库已同步清空');
+    };
     tb.appendChild(tg);
 
-    /* 按模板的记录：查看 / 下载 / 删除 */
+    /* 按模板的记录：预览 / 下载 / 删除 */
     MAP_LIST.forEach(function (m) {
       var tr = el('tr');
       tr.innerHTML =
@@ -625,7 +637,7 @@
         '<td>' + esc(m.tpl) + '</td><td>' + m.rows.length + ' 项</td>' +
         '<td><span class="kb-tag ' + m.cls + '">' + esc(m.status) + '</span></td>' +
         '<td>' + esc(m.time) + '</td>' +
-        '<td><span class="kbf-op op-v">查看</span><span class="kbf-op op-d">下载</span><span class="kbf-op del op-x">删除</span></td>';
+        '<td><span class="kbf-op op-v">预览</span><span class="kbf-op op-d">下载</span><span class="kbf-op del op-x">删除</span></td>';
       tr.querySelector('.op-v').onclick = function () { openMapDialog(m.name + ' · 明细', m.rows); };
       tr.querySelector('.op-d').onclick = function () { toast('⬇ ' + m.name + ' 已开始下载（原型提示）'); };
       tr.querySelector('.op-x').onclick = function () {

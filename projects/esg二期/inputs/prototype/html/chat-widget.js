@@ -355,6 +355,13 @@
     '#ecw-root .ecw-inputbox{display:flex;align-items:flex-end;gap:6px;border:1px solid #dfe3ee;border-radius:10px;',
     ' background:#fbfcff;padding:6px 6px 6px 5px;transition:border-color .15s,background .15s,box-shadow .15s}',
     '#ecw-root .ecw-inputbox:focus-within{border-color:#3f7afa;background:#fff;box-shadow:0 0 0 2px rgba(63,122,250,.12)}',
+    '#ecw-root .ecw-attachbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}',
+    '#ecw-root .ecw-attachchip{display:inline-flex;align-items:center;gap:6px;max-width:220px;padding:4px 8px;font-size:12px;',
+    ' color:#1f2329;background:#f5f8ff;border:1px solid #dfe8f8;border-radius:6px}',
+    '#ecw-root .ecw-attachchip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '#ecw-root .ecw-attachchip .sz{flex-shrink:0;font-size:11px;color:#98a0ad}',
+    '#ecw-root .ecw-attachchip .rm{flex-shrink:0;color:#98a0ad;cursor:pointer;font-size:13px}',
+    '#ecw-root .ecw-attachchip .rm:hover{color:#e5484d}',
     '#ecw-root .ecw-leftbtns{display:flex;gap:2px;flex-shrink:0;padding-bottom:1px}',
     '#ecw-root .ecw-attach{width:26px;height:26px;border:none;background:transparent;border-radius:6px;',
     ' cursor:pointer;color:#8a94a6;font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;',
@@ -650,6 +657,7 @@
     '        <button class="ecw-agentbtn" id="ecw-databtn">数据选择</button>' +
     '        <button class="ecw-agentbtn" id="ecw-yearbtn" title="选择信息采集表取数年份" style="display:none">📅 年份：2025</button>' +
     '      </div>' +
+    '      <div class="ecw-attachbar" id="ecw-attachbar" style="display:none"></div>' +
     '      <div class="ecw-inputbox">' +
     '        <div class="ecw-leftbtns">' +
     '          <button class="ecw-attach" id="ecw-attachbtn" title="上传附件（可多选）">📎' +
@@ -1753,11 +1761,14 @@
   }
 
   async function startExtract(prompt) {
-    /* 所选年份无收集数据（如仅发起过收集但无人填报）：提示更换年份，不生成确认表；上传模板的年份本身不限 */
-    if (DEMO_EMPTY_YEARS.indexOf(collectYear) !== -1) {
+    /* 发起时年份强校验：模板封面年度与所选年份不一致 → 阻止，提示换年份或重传对应年份模板 */
+    if (collectYear !== DEMO_COVER_YEAR) {
       addAgent({
-        text: '⚠️ **所选年份（' + collectYear + '）暂无收集数据**，无法提取指标数值。请点击输入区【📅 年份】按钮更换年份后重新提取。',
-        chips: [{ label: '📅 更换年份', act: function () { openYearMenu(); } }]
+        text: '⚠️ **模板年份（' + DEMO_COVER_YEAR + '）与所选年份（' + collectYear + '）不一致**，无法发起提取。请点击输入区【📅 年份】更换年份，或重新上传对应年份的模板。',
+        chips: [
+          { label: '📅 更换年份', act: function () { openYearMenu(); } },
+          { label: '↻ 重新提取', act: function () { startExtract(''); } }
+        ]
       });
       return;
     }
@@ -1976,15 +1987,74 @@
   /* ================================================================
    * 九、输入路由与附件上传
    * ================================================================ */
+  /* ---- 附件暂存（全局交互）：选择后不上传，输入框上方附件条暂存；点发送统一上传解析 ---- */
+  var pendingFiles = [];
+
+  function renderAttachBar() {
+    var bar = root.querySelector('#ecw-attachbar');
+    if (!bar) return;
+    bar.innerHTML = '';
+    pendingFiles.forEach(function (f, i) {
+      var chip = el('div', 'ecw-attachchip',
+        '<span class="nm" title="' + escapeHtml(f.name) + '">' + escapeHtml(f.name) + '</span>' +
+        '<span class="sz">' + fmtSize(f.size) + '</span><span class="rm" title="移除">✕</span>');
+      chip.querySelector('.rm').onclick = function () {
+        pendingFiles.splice(i, 1);
+        renderAttachBar();
+      };
+      bar.appendChild(chip);
+    });
+    bar.style.display = pendingFiles.length ? 'flex' : 'none';
+  }
+
+  function stageFiles(fileList) {            /* 选择文件 → 即时校验 → 暂存附件条（不路由不上传） */
+    if (!fileList.length) return;
+    var bad = 0;
+    Array.prototype.forEach.call(fileList, function (f) {
+      var ok = state.mode === 'collect' ? /\.(docx|xlsx)$/i.test(f.name) : true;
+      if (!ok) { bad++; return; }
+      pendingFiles.push({ name: f.name, size: f.size });
+    });
+    renderAttachBar();
+    if (bad) addSystem('信息采集表模式仅支持 Word 模板（.docx）与映射表（.xlsx）', 'warn');
+  }
+
   function onSend() {
+    if (busy) return;
     var text = ta.value.trim();
-    if (!text || busy) return;
+    var files = pendingFiles.slice();
+    if (!text && !files.length) return;
     ta.value = '';
     autoGrow();
-    addUser(text);
-    if (state.mode === 'chat') routeChat(text);
-    else if (state.mode === 'report') startReportDemo();   /* 任意输入 → 固定演示 */
-    else routeCollect(text);
+    var lines = [];
+    if (text) lines.push(text);
+    files.forEach(function (f) { lines.push('📎 《' + f.name + '》（' + fmtSize(f.size) + '）'); });
+    addUser(lines.join('\n'));
+    pendingFiles = [];
+    renderAttachBar();
+    if (state.mode === 'collect') {
+      if (files.length) dispatchCollectFiles(files);
+      if (text) routeCollect(text);
+    } else if (state.mode === 'report') {
+      startReportDemo();                     /* 任意输入（含附件）→ 固定演示 */
+    } else {
+      if (files.length) extractDemo();
+      else routeChat(text);
+    }
+  }
+
+  /* 发送时统一处理采集表附件：按扩展名分流（.docx→模板、.xlsx→映射表） */
+  function dispatchCollectFiles(files) {
+    var gotTpl = false, gotMap = false;
+    files.forEach(function (f) {
+      if (/\.docx$/i.test(f.name)) gotTpl = true;
+      else if (/\.xlsx$/i.test(f.name)) gotMap = true;
+    });
+    if (gotMap) {
+      collectMappingUploaded = true;
+      addSystem('已收到映射表，匹配时将优先使用');
+    }
+    if (gotTpl && collectStage === 'await-file') awaitPrompt();
   }
 
   function routeChat(text) {
@@ -2043,41 +2113,7 @@
   /* 📎 附件上传（真实文件选择，支持多选；演示按模式触发对应流程）。
      collect 模式两层校验：.docx=模板 → awaitPrompt；.xlsx=映射表 → 仅提示优先使用；
      其他扩展名 → 系统提示仅支持 Word 模板与映射表 */
-  function handleFiles(fileList) {
-    if (busy || !fileList.length) return;
-    if (state.mode !== 'collect') {
-      var names = [];
-      Array.prototype.forEach.call(fileList, function (f) {
-        names.push('📎 《' + f.name + '》（' + fmtSize(f.size) + '）');
-      });
-      addUser(names.join('\n'));
-      if (state.mode === 'report') startReportDemo();
-      else extractDemo();
-      return;
-    }
-    var gotTpl = false, gotMap = false, gotBad = false;
-    Array.prototype.forEach.call(fileList, function (f) {
-      var isDocx = /\.docx$/i.test(f.name);
-      var isXlsx = /\.xlsx$/i.test(f.name);
-      if (isDocx) {
-        gotTpl = true;
-        addUser('📎 《' + f.name + '》（' + fmtSize(f.size) + '）（模板）');
-      } else if (isXlsx) {
-        gotMap = true;
-        addUser('📎 《' + f.name + '》（' + fmtSize(f.size) + '）（映射表）');
-      } else {
-        gotBad = true;
-      }
-    });
-    if (gotMap) {
-      collectMappingUploaded = true;
-      addSystem('已收到映射表，匹配时将优先使用');
-    }
-    if (gotBad) {
-      addSystem('信息采集表模式仅支持 Word 模板（.docx）与映射表（.xlsx）', 'warn');
-    }
-    if (gotTpl && collectStage === 'await-file') awaitPrompt();
-  }
+  function handleFiles(fileList) { stageFiles(fileList); }   /* 选择即暂存（发送时统一处理），见 onSend */
 
   /* ---- 🗂 知识库选择：读取知识库页面的目录（localStorage kb-files-v1）+ 指标映射表 ---- */
   var KB_SEED = {
@@ -2665,9 +2701,9 @@
         $('ecw-yearbtn').textContent = '📅 年份：' + y;
         menu.remove();
         if (DEMO_EMPTY_YEARS.indexOf(y) !== -1) {
-          addSystem('⚠️ 所选年份（' + y + '）暂无收集数据，提取时将提示更换年份。');
+          addSystem('📅 所选年份（' + y + '）暂无填报数据：提取后数值列将为空、可人工填写。年份对下一次提取生效。');
         } else if (y !== DEMO_COVER_YEAR) {
-          addSystem('⚠️ 所选年份（' + y + '）与模板封面年度（' + DEMO_COVER_YEAR + '）不一致，请确认。年份对下一次提取生效。');
+          addSystem('⚠️ 所选年份（' + y + '）与模板封面年度（' + DEMO_COVER_YEAR + '）不一致：发送提取时将被校验拦截，请更换年份或重新上传对应年份模板。');
         } else {
           addSystem('📅 取数年份已设为 ' + y + ' 年，对下一次提取生效。');
         }
