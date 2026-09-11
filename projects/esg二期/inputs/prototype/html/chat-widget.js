@@ -425,6 +425,7 @@
     ' margin-left:4px;white-space:nowrap;font-weight:500;vertical-align:1px}',
     '#ecw-root .ecw-rowtag-ed{color:#d97a00;background:#fff3e8;border:1px solid #ffe0b3}',
     '#ecw-root .ecw-rowtag-rf{color:#2f5fd9;background:#e8efff;border:1px solid #c9d8ff}',
+    '#ecw-root .ecw-rowtag-lc{color:#c2410c;background:#fff7ed;border:1px solid #fed7aa}',
     '#ecw-root .ecw-misstag{display:inline-block;font-size:10px;color:#98a0ad;background:#f0f1f5;',
     ' border-radius:3px;padding:0 5px;margin-left:5px;white-space:nowrap}',
     '#ecw-root .ecw-tbl td.ecw-misscell::after{content:"未命中";display:inline-block;font-size:10px;',
@@ -1115,16 +1116,16 @@
     /* ① 映射表·纯自动（预览第 1-2 行） */
     { tpl: '披露的温室气体范围1排放量（二氧化碳当量公吨）', ind: '温室气体排放-范围一', code: 'E-E-1-1-0001', v25: '81,607.46', v24: '92,983.81', src: 'map' },
     { tpl: '披露的温室气体范围2排放量（二氧化碳当量公吨）', ind: '温室气体排放-范围二', code: 'E-E-1-1-0002', v25: '750,516.01', v24: '746,866.14', src: 'map' },
-    /* ④ AI匹配·未动（预览第 3 行，top3 默认最高分） */
+    /* AI匹配·未动（预览第 3 行：默认候选 0.78<0.85 → 状态列"低置信"；第三候选 0.08 被阈值过滤不出现在下拉） */
     { tpl: '如是，披露的温室气体范围3排放量（二氧化碳当量公吨）', code: 'E-E-1-1-0003', v25: '16,555,532.07', v24: '18,166,382.83', src: 'ai', cands: [
-      { name: '温室气体排放-范围三（价值链）', code: 'E-E-1-1-0003', conf: '0.91' },
-      { name: '温室气体排放总量', code: 'E-E-1-1-0004', conf: '0.37' },
+      { name: '温室气体排放-范围三（价值链）', code: 'E-E-1-1-0003', conf: '0.78' },
+      { name: '温室气体排放总量', code: 'E-E-1-1-0004', conf: '0.62' },
       { name: '年度温室气体减排量', code: 'E-E-1-3-0002', conf: '0.08' }
     ] },
     /* AI匹配·未动（预览第 4 行；换下拉选项后标"已修改"、编码联动） */
     { tpl: '披露的温室气体减排量（二氧化碳当量公吨）', v25: '207', v24: '208.6', src: 'ai', cands: [
       { name: '年度温室气体减排量', code: 'E-E-1-3-0002', conf: '0.92' },
-      { name: '温室气体排放总量', code: 'E-E-1-1-0004', conf: '0.44' },
+      { name: '温室气体排放总量', code: 'E-E-1-1-0004', conf: '0.66' },
       { name: '温室气体排放-范围一', code: 'E-E-1-1-0001', conf: '0.11' }
     ] },
     /* 未匹配·AI 未找到对应平台指标（预览第 5 行：全空，可手输名称/数值演示） */
@@ -1138,7 +1139,7 @@
     /* ⑦ AI匹配·本轮被重匹配刷新（蓝标，仅最新一轮） */
     { tpl: '挥发性有机物（VOCs）', code: 'E-E-2-1-0004', v25: '100.8', v24: '100.46', src: 'ai', cands: [
       { name: '挥发性有机物（VOCs）排放量', code: 'E-E-2-1-0004', conf: '0.87' },
-      { name: '无害废弃物产生总量', code: 'E-E-5-1-0002', conf: '0.19' },
+      { name: '无害废弃物产生总量', code: 'E-E-5-1-0002', conf: '0.55' },
       { name: '氨氮排放量', code: 'E-E-2-2-0003', conf: '0.04' }
     ] },
     /* ⑩ 平台缺本期值但有上期值（本期空） */
@@ -1146,7 +1147,7 @@
     /* ④ AI匹配·未动（第 2 行） */
     { tpl: '能源消费总量（吨标准煤）', code: 'E-E-14-1-0001', v25: '1,771,316', v24: '1,815,512', src: 'ai', cands: [
       { name: '综合能源消耗总量', code: 'E-E-14-1-0001', conf: '0.93' },
-      { name: '直接能源消耗量', code: 'E-E-14-1-0004', conf: '0.35' },
+      { name: '直接能源消耗量', code: 'E-E-14-1-0004', conf: '0.58' },
       { name: '间接能源消耗量', code: 'E-E-14-1-0005', conf: '0.28' }
     ] },
     /* ⑧ 未匹配·全空（名称/编码/数值全空，演示跳过写入留空） */
@@ -1187,11 +1188,16 @@
   };
 
   /* 行内标记（状态列·行尾）：已修改（橙）＝用户改过（跨确认轮持续）；已刷新（蓝）＝本轮被重新匹配（仅最新一轮） */
-  function paintRowMarks(tdNo, d) {
-    var box = tdNo.querySelector('.ecw-rowmark');
+  function paintRowMarks(tdCell, d) {
+    var box = tdCell.querySelector('.ecw-rowmark');
+    if (!box) return;
     var html = '';
     if (d.edited) html += '<span class="ecw-rowtag ecw-rowtag-ed">已修改</span>';
     if (d.refreshed) html += '<span class="ecw-rowtag ecw-rowtag-rf">已刷新</span>';
+    if (d.src === 'ai' && !d.manual && d.cands) {   /* 低置信：当前选中候选 < 0.85，仅提示不阻断 */
+      var c = d.cands[d.sel || 0];
+      if (c && parseFloat(c.conf) < 0.85) html += '<span class="ecw-rowtag ecw-rowtag-lc">低置信</span>';
+    }
     box.innerHTML = html;
   }
 
@@ -1203,7 +1209,7 @@
     function commit(idx, f, v, tr) {            /* 编辑写回数据＋标记「已修改」＋上报 */
       var d = collectData[idx];
       d.edited = true;
-      if (tr) paintRowMarks(tr.children[0], d);
+      if (tr) paintRowMarks(tr.lastElementChild, d);
       if (onEdit) onEdit({ idx: idx, f: f, v: v });
     }
     var t = el('table', 'ecw-tbl');
@@ -1238,6 +1244,7 @@
             var sel = el('select', 'ecw-xsel');
             sel.title = 'AI 匹配 top3 候选（含置信度）；选「✍ 手动输入」改为直接输入名称';
             d.cands.forEach(function (c, ci) {
+              if (parseFloat(c.conf) <= 0.5) return;   /* 候选过滤阈值 0.5：不高于阈值的候选不进下拉 */
               var o = el('option', null, escapeHtml(c.name) + '（' + c.conf + '）');
               o.value = String(ci);
               sel.appendChild(o);
