@@ -4,7 +4,9 @@
  * 功能：
  *   · 左侧历史对话列表（localStorage 持久化，跨页面共享）
  *   · 智能问答（默认）—— 知识库检索、附件内容提取演示
- *   · 报告生成 Agent —— 固定演示流程：解析→指标匹配确认→生成报告
+ *   · 报告生成 Agent（REQ-03 v1）—— 正常对话＋会话上下文·素材池（附件/知识库引用/数据选择累积，界面定名"上下文"）＋
+ *     语义触发发起（无按钮）→ 提取匹配确认卡（top3＋来源列＋跳过/其他/添加指标，轮内全量循环确认）→
+ *     终确（映射沉淀独立报告映射表＋已确认指标集更新）→ 生成式撰写草稿（多版本叠加保留）
  *   · 指标信息采集表 Agent —— 上传 Word 模板（.docx 必传）＋可选三列映射表（.xlsx）→
  *     提取合并映射（映射表/AI top3/未匹配）→ 8 列确认表核对修改（下拉/手输/数值/采纳，可循环）→
  *     确认后按模板原格式填充两期数值生成 Word；映射关系同步全局映射库与知识库映射列表
@@ -76,9 +78,10 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
   }
   function copyText(text, btn) {
+    /* 唯一调用方＝报告结果卡【复制全文】：按报告界面纯文字约束不加对勾字形（2026-09-14） */
     function done() {
       var old = btn.textContent;
-      btn.textContent = '✓ 已复制';
+      btn.textContent = '已复制';
       btn.disabled = true;
       setTimeout(function () { btn.textContent = old; btn.disabled = false; }, 1600);
     }
@@ -431,11 +434,16 @@
     '#ecw-root .ecw-srctag-map{color:#2f5fd9;background:#e8efff}',
     '#ecw-root .ecw-srctag-ai{color:#d97a00;background:#fff3e8}',
     '#ecw-root .ecw-srctag-miss{color:#8a919f;background:#f0f1f5}',
+    /* 报告确认表（2026-09-14 定型：与采集表同表格同交互）来源徽标：数据选择 / 手动添加 */
+    '#ecw-root .ecw-srctag-data{color:#b06200;background:#fdf3e7}',
+    '#ecw-root .ecw-srctag-manual{color:#2f5fd9;background:#e8efff}',
     '#ecw-root .ecw-rowtag{display:inline-block;font-size:10px;border-radius:3px;padding:0 4px;',
     ' margin-left:4px;white-space:nowrap;font-weight:500;vertical-align:1px}',
     '#ecw-root .ecw-rowtag-ed{color:#d97a00;background:#fff3e8;border:1px solid #ffe0b3}',
     '#ecw-root .ecw-rowtag-rf{color:#2f5fd9;background:#e8efff;border:1px solid #c9d8ff}',
     '#ecw-root .ecw-rowtag-lc{color:#c2410c;background:#fff7ed;border:1px solid #fed7aa}',
+    /* 报告确认表：手动添加行「待匹配」标记（点【确认匹配】后才进行平台匹配） */
+    '#ecw-root .ecw-rowtag-pd{color:#8a6d3b;background:#fdfaf4;border:1px solid #f0e3c8}',
     '#ecw-root .ecw-misstag{display:inline-block;font-size:10px;color:#98a0ad;background:#f0f1f5;',
     ' border-radius:3px;padding:0 5px;margin-left:5px;white-space:nowrap}',
     '#ecw-root .ecw-tbl td.ecw-misscell::after{content:"未命中";display:inline-block;font-size:10px;',
@@ -589,7 +597,62 @@
     '#ecw-root .ecw-dsfsbody::-webkit-scrollbar-thumb{background:#d8dce6;border-radius:3px}',
     '#ecw-root .ecw-dsfsbody .ecw-tbl{font-size:12.5px}',
     '#ecw-root .ecw-dsfsfoot{padding:9px 16px;border-top:1px solid #eef0f5;background:#fafbfe;',
-    ' font-size:11px;color:#8a919f;flex-shrink:0;line-height:1.6}'
+    ' font-size:11px;color:#8a919f;flex-shrink:0;line-height:1.6}',
+
+    /* ---- 报告生成模式扩展（REQ-03 v1：上下文·素材池条 / 确认卡来源列与添加指标 / 循环确认与置灰态）。
+       注：本节为新增界面元素，按用户约束（2026-09-14）一律纯文字，不使用 emoji / icon / 符号标记 ---- */
+    '#ecw-root .ecw-poolbar{display:none;flex-direction:column;gap:5px;margin-bottom:8px;',
+    ' border:1px solid #dfe8f8;background:#f7f9fd;border-radius:6px;padding:6px 8px}',
+    '#ecw-root[data-mode="report"] .ecw-poolbar{display:flex}',
+    '#ecw-root .ecw-poolhead{display:flex;align-items:center;gap:8px}',
+    '#ecw-root .ecw-pooltitle{flex:1;min-width:0;font-size:11.5px;color:#133368;font-weight:600;',
+    ' white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '#ecw-root .ecw-poolbtn{border:1px solid #c9d8ff;background:#fff;color:#2f5fd9;border-radius:4px;',
+    ' font-size:11px;font-family:inherit;padding:2px 8px;cursor:pointer;flex-shrink:0;transition:all .15s}',
+    '#ecw-root .ecw-poolbtn:hover{background:#3f7afa;border-color:#3f7afa;color:#fff}',
+    '#ecw-root .ecw-poolbody{display:flex;flex-wrap:wrap;gap:6px}',
+    '#ecw-root .ecw-poolbar.ecw-folded .ecw-poolbody{display:none}',
+    '#ecw-root .ecw-poolchip{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:3px 8px;',
+    ' background:#fff;border:1px solid #e3e8f2;border-radius:6px;font-size:11.5px;color:#1f2329}',
+    '#ecw-root .ecw-poolchip .nm{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '#ecw-root .ecw-pooltag{font-size:10px;border-radius:3px;padding:1px 5px;flex-shrink:0;font-weight:500;white-space:nowrap}',
+    '#ecw-root .ecw-pooltag-attach{color:#2f5fd9;background:#e8efff}',
+    '#ecw-root .ecw-pooltag-kb{color:#4e9e44;background:#eaf7e6}',
+    '#ecw-root .ecw-pooltag-data{color:#b06200;background:#fdf3e7}',
+    '#ecw-root .ecw-pooldel{border:none;background:transparent;color:#98a0ad;cursor:pointer;font-size:11px;',
+    ' font-family:inherit;padding:0 2px;flex-shrink:0}',
+    '#ecw-root .ecw-pooldel:hover{color:#e5484d}',
+    /* 确认卡：来源标签 / 已确认指标提示 / 添加指标输入行 / 旧卡置灰 */
+    '#ecw-root .ecw-msrc{font-size:10px;border-radius:3px;padding:1px 5px;flex-shrink:0;font-weight:500;',
+    ' white-space:nowrap;margin-left:6px;vertical-align:1px}',
+    '#ecw-root .ecw-msrc-ai{color:#d97a00;background:#fff3e8}',
+    '#ecw-root .ecw-msrc-data{color:#b06200;background:#fdf3e7}',
+    '#ecw-root .ecw-msrc-manual{color:#2f5fd9;background:#e8efff}',
+    '#ecw-root .ecw-mnote{margin:8px 10px 0;padding:6px 9px;font-size:11px;color:#2f5fd9;background:#f5f8ff;',
+    ' border:1px solid #dfe8f8;border-radius:5px;line-height:1.6}',
+    '#ecw-root .ecw-maddrow{display:none;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px dashed #eceef4}',
+    '#ecw-root .ecw-match.ecw-showadd .ecw-maddrow{display:flex}',
+    '#ecw-root .ecw-match.ecw-stale .ecw-maddrow{display:none!important}',
+    '#ecw-root .ecw-maddin{flex:1;border:1px solid #e6e6e6;border-radius:4px;padding:5px 8px;font-size:12px;',
+    ' font-family:inherit;outline:none;min-width:0}',
+    '#ecw-root .ecw-maddin:focus{border-color:#3f7afa}',
+    '#ecw-root .ecw-maddact{font-size:11.5px;color:#3f7afa;cursor:pointer;flex-shrink:0;background:none;',
+    ' border:none;font-family:inherit;padding:0}',
+    '#ecw-root .ecw-maddact:hover{text-decoration:underline}',
+    /* 报告确认交互改版（2026-09-14 用户定型）：与采集表完全同款「会话内预览卡＋完整表格大窗」——
+       预览卡超 6 行仅显示前 6 行＋提示行；全部编辑（top3 下拉/手输/数值/是否采纳）由 ecw-bigdlg
+       大窗内的同款 9 列表格承载，唯一不同＝大窗顶部「添加指标」行（ecw-maddrow） */
+    '#ecw-root .ecw-bigb .ecw-maddrow{display:flex}',
+    '#ecw-root .ecw-match.ecw-locked .ecw-tbl{opacity:.75}',
+    '#ecw-root .ecw-match.ecw-stale{opacity:.55}',
+    '#ecw-root .ecw-match.ecw-stale .ecw-mopt,#ecw-root .ecw-match.ecw-stale .ecw-mfoot{pointer-events:none}',
+    '#ecw-root .ecw-match.ecw-stale .ecw-xlsmore{pointer-events:none}',
+    '#ecw-root .ecw-match.ecw-stale .ecw-mopt.on{opacity:1}',
+    /* 知识库选择弹窗：文件类型标识（参考文档 / 提示词文档，REQ-03 FP-F） */
+    '#ecw-root .ecw-kbtag-ref{color:#2f5fd9;background:#e8efff;font-size:10px;border-radius:3px;',
+    ' padding:1px 5px;flex-shrink:0;white-space:nowrap}',
+    '#ecw-root .ecw-kbtag-prompt{color:#5b46d6;background:#efebff;font-size:10px;border-radius:3px;',
+    ' padding:1px 5px;flex-shrink:0;white-space:nowrap}'
   ].join('');
 
   /* ================================================================
@@ -638,6 +701,7 @@
     '        <button class="ecw-agentbtn" id="ecw-databtn">数据选择</button>' +
     '        <select class="ecw-yearsel" id="ecw-yearsel" title="选择信息采集表取数年份" style="display:none"></select>' +
     '      </div>' +
+    '      <div class="ecw-poolbar" id="ecw-poolbar"></div>' +
     '      <div class="ecw-attachbar" id="ecw-attachbar" style="display:none"></div>' +
     '      <div class="ecw-inputbox">' +
     '        <div class="ecw-leftbtns">' +
@@ -737,14 +801,14 @@
   }
   function hideTyping() { if (typingRow) { typingRow.remove(); typingRow = null; } }
 
-  /* 工具调用进度卡片 → Promise */
-  function addProgress(title, steps) {
+  /* 工具调用进度卡片 → Promise；opts.noIcon：标题不带符号前缀（报告模式新增流程用，用户约束 2026-09-14） */
+  function addProgress(title, steps, opts) {
     return new Promise(function (resolve) {
       var row = el('div', 'ecw-row ecw-agent');
       var av = el('div', 'ecw-mavatar', agentEmoji());
       var card = el('div', 'ecw-card');
       card.style.width = '100%';
-      if (title) card.appendChild(el('div', 'ecw-cardtitle', '⚙️ ' + escapeHtml(title)));
+      if (title) card.appendChild(el('div', 'ecw-cardtitle', (opts && opts.noIcon ? '' : '⚙️ ') + escapeHtml(title)));
       var list = el('div', 'ecw-steps');
       card.appendChild(list);
 
@@ -762,6 +826,51 @@
           item.classList.remove('ecw-run');
           item.classList.add('ecw-ok');
           item.querySelector('.ecw-sicon').innerHTML = '✓';
+          if (st.sub && st.sub.length) {
+            var subs = item.querySelector('.ecw-ssubs');
+            st.sub.forEach(function (s) { subs.appendChild(el('span', null, '· ' + md(s))); });
+          }
+          scrollBottom();
+          await sleep(220);
+        }
+        await sleep(300);
+        resolve();
+      })();
+
+      row.appendChild(av);
+      row.appendChild(card);
+      msgs.appendChild(row);
+      scrollBottom();
+    });
+  }
+
+  /* 报告模式进度卡（addProgress 的报告专用副本——用户约束 2026-09-14 报告界面去符号：
+     标题无符号前缀、步骤完成态不显示对勾字形（以绿色圆点示意）；其余结构交互同款。
+     采集表 / 数据选择继续用原 addProgress，互不影响） */
+  function addProgressPlain(title, steps) {
+    return new Promise(function (resolve) {
+      var row = el('div', 'ecw-row ecw-agent');
+      var av = el('div', 'ecw-mavatar', agentEmoji());
+      var card = el('div', 'ecw-card');
+      card.style.width = '100%';
+      if (title) card.appendChild(el('div', 'ecw-cardtitle', escapeHtml(title)));
+      var list = el('div', 'ecw-steps');
+      card.appendChild(list);
+
+      (async function run() {
+        for (var i = 0; i < steps.length; i++) {
+          var st = steps[i];
+          var item = el('div', 'ecw-step');
+          item.innerHTML = '<span class="ecw-sicon"><span class="ecw-spin"></span></span>' +
+            '<span style="flex:1"><span class="ecw-slabel">' + escapeHtml(st.label) + '</span>' +
+            '<span class="ecw-ssubs"></span></span>';
+          list.appendChild(item);
+          item.classList.add('ecw-run');
+          scrollBottom();
+          await sleep(st.dur || 900);
+          item.classList.remove('ecw-run');
+          item.classList.add('ecw-ok');
+          item.querySelector('.ecw-sicon').innerHTML = '';   /* 完成态＝绿色圆点，无对勾字形 */
           if (st.sub && st.sub.length) {
             var subs = item.querySelector('.ecw-ssubs');
             st.sub.forEach(function (s) { subs.appendChild(el('span', null, '· ' + md(s))); });
@@ -822,7 +931,8 @@
     card.style.width = '100%';
     var head = el('div', 'ecw-dochead');
     head.appendChild(el('div', 'ecw-doctitle', escapeHtml(cfg.title)));
-    head.appendChild(el('span', 'ecw-aitag', '⚠ AI生成/提取，请人工核实'));
+    /* 报告模式结果卡（REQ-03 v1）：AI 核实标注与按钮一律纯文字（用户约束 2026-09-14） */
+    head.appendChild(el('span', 'ecw-aitag', 'AI生成，请人工核实'));
     card.appendChild(head);
     var body = el('div', 'ecw-docbody');
     body.contentEditable = 'true';
@@ -835,7 +945,7 @@
     bCopy.onclick = function () { copyText(body.innerText, bCopy); };
     foot.appendChild(bCopy);
     if (cfg.download) {
-      var bDl = el('button', 'ecw-btn ecw-solid', '⬇ 下载 .docx');
+      var bDl = el('button', 'ecw-btn ecw-solid', '下载 .docx');
       bDl.onclick = function () { downloadWord(cfg.download.name, cfg.download.build()); };
       foot.appendChild(bDl);
     }
@@ -1002,6 +1112,7 @@
     currentId = null;
     msgs.innerHTML = '';
     resetCollect();
+    resetReport();
     setMode('chat', true);
     addSystem('已开启新对话 · 原型演示数据为模拟');
     chatIntro();
@@ -1018,9 +1129,9 @@
       banner: ''
     },
     report: {
-      emoji: '📄', name: '报告生成 Agent',
-      ph: '输入任意内容或描述要求，开始报告生成演示…',
-      banner: '当前 Agent：<b>报告生成</b> · 输入任意内容或上传附件即可开始演示'
+      emoji: '报', name: '报告生成 Agent',   /* 头像用纯文字字标（用户约束：报告界面去符号） */
+      ph: '对话或补充素材；表达“开始生成报告”意图（如：帮我生成报告）即发起生成',
+      banner: '当前 Agent：<b>报告生成</b> · 正常对话累积上下文，说“帮我生成报告”即可发起（无开始按钮）'
     },
     collect: {
       emoji: '📋', name: '指标信息采集表 Agent',
@@ -1066,6 +1177,7 @@
     });
     var yb = $('ecw-yearsel');                   /* 年份下拉：仅采集表模式显示（排在【数据选择】之后） */
     if (yb) yb.style.display = mode === 'collect' ? '' : 'none';
+    if (mode === 'report') renderPoolBar();      /* 上下文（素材池）条：报告模式进入时刷新（REQ-03 v1） */
     if (!silent) {
       if (mode === 'report') { addSystem('已切换至「报告生成」Agent'); reportIntro(); }
       else if (mode === 'collect') { addSystem('已切换至「指标信息采集表」Agent'); collectIntro(); }
@@ -1078,37 +1190,35 @@
    * ================================================================ */
 
   /* ---------- 报告生成演示数据（固定脚本，与用户输入无关） ---------- */
+  /* 行结构照采集表 collectData：tpl=素材指标名（只读）｜cands=top3 候选（name/code/conf/val，
+     下拉过滤阈值 0.5 同采集表：不高于 0.5 的候选不进下拉）｜v25=当前值（本期）｜v24=上期（可手输） */
   var MATCH_DATA = [
     {
-      name: '供应商区域分布',
-      opts: [
-        { code: 'SOC-007', name: '供应商区域分布', score: '0.9', hi: true, val: '非洲3642家、美洲793家、欧洲618家、其他…' },
-        { code: 'SOC-005', name: '供应商总数', score: '0.4', val: '5,173 家' },
-        { code: 'SOC-008', name: '供应商筛选原则', score: '0.1', val: '涵盖环境面向、社会面向、治理面向和业务四大面向,…' }
+      tpl: '供应商区域分布', cands: [
+        { code: 'SOC-007', name: '供应商区域分布', conf: '0.9', val: '非洲3642家、美洲793家、欧洲618家、其他…' },
+        { code: 'SOC-005', name: '供应商总数', conf: '0.55', val: '5,173 家' },
+        { code: 'SOC-008', name: '供应商筛选原则', conf: '0.1', val: '涵盖环境面向、社会面向、治理面向和业务四大面向,…' }
       ]
     },
     {
-      name: '供应商类型分布',
-      opts: [
-        { code: 'SOC-005', name: '供应商总数', score: '0.3', val: '5,173 家' },
-        { code: 'SOC-007', name: '供应商区域分布', score: '0.2', val: '非洲3642家、美洲793家、欧洲618家、其他…' },
-        { code: 'SOC-008', name: '供应商筛选原则', score: '0.1', val: '涵盖环境面向、社会面向、治理面向和业务四大面向,…' }
+      tpl: '供应商类型分布', cands: [
+        { code: 'SOC-005', name: '供应商总数', conf: '0.62', val: '5,173 家' },
+        { code: 'SOC-007', name: '供应商区域分布', conf: '0.2', val: '非洲3642家、美洲793家、欧洲618家、其他…' },
+        { code: 'SOC-008', name: '供应商筛选原则', conf: '0.1', val: '涵盖环境面向、社会面向、治理面向和业务四大面向,…' }
       ]
     },
     {
-      name: '供应商总数',
-      opts: [
-        { code: 'SOC-005', name: '供应商总数', score: '0.95', hi: true, val: '5,173 家' },
-        { code: 'SOC-007', name: '供应商区域分布', score: '0.4', val: '非洲3642家、美洲793家、欧洲618家、其他…' },
-        { code: 'SOC-008', name: '供应商筛选原则', score: '0.1', val: '涵盖环境面向、社会面向、治理面向和业务四大面向,…' }
+      tpl: '供应商总数', cands: [
+        { code: 'SOC-005', name: '供应商总数', conf: '0.95', val: '5,173 家' },
+        { code: 'SOC-007', name: '供应商区域分布', conf: '0.4', val: '非洲3642家、美洲793家、欧洲618家、其他…' },
+        { code: 'SOC-008', name: '供应商筛选原则', conf: '0.1', val: '涵盖环境面向、社会面向、治理面向和业务四大面向,…' }
       ]
     },
     {
-      name: '重大供应商筛选原则',
-      opts: [
-        { code: 'SOC-008', name: '供应商筛选原则', score: '0.98', hi: true, val: '涵盖环境面向、社会面向、治理面向和业务四大面向,…' },
-        { code: 'SOC-005', name: '供应商总数', score: '0.1', val: '5,173 家' },
-        { code: 'SOC-007', name: '供应商区域分布', score: '0.05', val: '非洲3642家、美洲793家、欧洲618家、其他…' }
+      tpl: '重大供应商筛选原则', cands: [
+        { code: 'SOC-008', name: '供应商筛选原则', conf: '0.98', val: '涵盖环境面向、社会面向、治理面向和业务四大面向,…' },
+        { code: 'SOC-005', name: '供应商总数', conf: '0.1', val: '5,173 家' },
+        { code: 'SOC-007', name: '供应商区域分布', conf: '0.05', val: '非洲3642家、美洲793家、欧洲618家、其他…' }
       ]
     }
   ];
@@ -1520,178 +1630,853 @@
     });
   }
 
-  /* ---------- 报告生成 Agent（固定演示流程） ---------- */
+  /* ---------- 报告生成 Agent（REQ-03 v1 目标态：正常对话＋上下文（素材池）＋语义触发＋循环确认＋增量生成。
+     2026-09-14 定型：确认大窗与信息采集表完全同款（9 列表格＋top3 下拉＋手输＋数值编辑＋是否采纳），
+     唯一不同＝大窗顶部「添加指标」行；界面定名「上下文」（2026-09-14 用户定名））
+     · 报告模式即正常 AI 对话（mock 流式回复），任意输入不再直接建工作流；
+     · 历轮附件 / 知识库引用 / 数据选择登记项累积为会话上下文·素材池（输入区上方，可折叠、可逐项移除）；
+     · 唯一发起方式＝语义触发（关键词 mock，见 isReportIntent；正式版由模型语义判定），无【开始生成】按钮；
+     · 确认卡（2026-09-14 用户定型：与信息采集表完全同款表格＋报告界面纯文字无符号）＝
+       会话内预览卡（前 6 行＋提示行＋入口按钮）＋完整表格大窗（同一张 9 列表格承载全部操作：
+       平台指标名 top3 下拉 /「手动输入」＋「返回候选」/ 数据列直接编辑 / 是否采纳勾选＝跳过；
+       来源列 AI提取·数据选择·手动添加，手动添加行匹配后并排标注 AI匹配/未匹配；
+       编辑在副本上、确认才应用、直接关闭丢弃）；
+     · 添加指标（与采集表的唯一不同）：大窗顶部添加时只登记素材指标名＋来源手动添加＋待匹配，
+       点【确认匹配】后才去平台匹配（top3 默认最高分；无候选＝未匹配可手输），返回二次确认全量卡；
+       既有行改名沿用同一时机，且保留原来源标签；
+     · 轮内任何修改＝重匹配变更行后全量卡再确认（循环）；无修改确认＝终确（落库＋进入生成）；
+     · 终确后回到正常对话；再次语义触发＝新一轮确认（只含未确认过的新增项），
+       新结果卡追加在会话中、旧结果卡保留；
+     · 确认卡挂起期间发消息 → 正常回答、不新建工作流（activeWorkflow 门禁 mock）；
+     · 新增界面元素一律纯文字，不使用 emoji / icon / 符号标记（用户约束 2026-09-14）。 ---------- */
+  var reportPool = [];        /* 会话上下文（素材池，界面定名「上下文」）：{id, kind:'attach'|'kb'|'data', label, sub, data} */
+  var reportFlow = null;      /* 进行中的确认工作流：{round, items, card}（编辑脏检由大窗 edits 驱动） */
+  var reportConfirmed = [];   /* 会话级已确认指标集：{code, name, val, source} */
+  var reportVersion = 0;      /* 已生成草稿版数（旧结果卡保留在会话中） */
+  var reportPoolFolded = false;
+
+  function resetReport() {
+    reportPool = [];
+    reportFlow = null;
+    reportConfirmed = [];
+    reportVersion = 0;
+    reportPoolFolded = false;
+    renderPoolBar();
+  }
+
+  /* 语义判定 mock：命中“生成 / 开始写 / 帮我写”类词即视为“开始生成报告”意图
+     （正式版由模型语义判定、实现由开发定；意图判定倾向宁可触发——REQ-03 拍板⑩） */
+  function isReportIntent(text) {
+    return /(生成|帮我写|开始写|写一份|撰写|起草)/.test(String(text || ''));
+  }
+
+  /* ---- 上下文·素材池（FP-A：会话级累积，可逐项移除；界面定名「上下文」） ---- */
+  function addPoolItem(kind, label, sub, data) {
+    reportPool.push({ id: uid(), kind: kind, label: label, sub: sub || '', data: data || null });
+    renderPoolBar();
+  }
+  function renderPoolBar() {
+    var bar = root.querySelector('#ecw-poolbar');
+    if (!bar) return;
+    bar.innerHTML = '';
+    bar.classList.toggle('ecw-folded', reportPoolFolded);
+    var head = el('div', 'ecw-poolhead');
+    var total = reportPool.length;
+    head.appendChild(el('span', 'ecw-pooltitle',
+      total ? '上下文（' + total + ' 项）· 发起报告生成时会全部带上'
+            : '上下文（0 项）· 通过附件上传、知识库引用或数据选择登记素材'));
+    var fold = el('button', 'ecw-poolbtn', reportPoolFolded ? '展开' : '收起');
+    fold.type = 'button';
+    fold.onclick = function () { reportPoolFolded = !reportPoolFolded; renderPoolBar(); };
+    head.appendChild(fold);
+    bar.appendChild(head);
+    if (!total) return;
+    var bodyEl = el('div', 'ecw-poolbody');
+    var KINDS = { attach: ['附件', 'ecw-pooltag-attach'], kb: ['知识库', 'ecw-pooltag-kb'], data: ['数据选择', 'ecw-pooltag-data'] };
+    reportPool.forEach(function (p) {
+      var k = KINDS[p.kind] || KINDS.attach;
+      var chip = el('span', 'ecw-poolchip');
+      chip.title = p.sub || p.label;
+      chip.appendChild(el('span', 'ecw-pooltag ' + k[1], k[0]));
+      chip.appendChild(el('span', 'nm', escapeHtml(p.label)));
+      var rm = el('button', 'ecw-pooldel', '移除');
+      rm.type = 'button';
+      rm.title = '从上下文移除';
+      rm.onclick = function () {
+        reportPool = reportPool.filter(function (x) { return x.id !== p.id; });
+        renderPoolBar();
+      };
+      chip.appendChild(rm);
+      bodyEl.appendChild(chip);
+    });
+    bar.appendChild(bodyEl);
+  }
+
+  /* ---- 报告模式正常对话回复（mock 流式：思考动效 → 逐字打字机 → markdown 成稿）；
+     names＝本轮新增素材的显示名（附件-only 轮也会走到这里——无文字即无语义判定，不触发工作流） ---- */
+  async function reportChatReply(text, addedN, names) {
+    var s = startSession();
+    showTyping('正在思考…');
+    await sleep(650 + Math.floor(Math.random() * 350));
+    if (stale(s)) return;
+    hideTyping();
+    var quoted = '“' + String(text || '').replace(/\s+/g, ' ').slice(0, 60) + '”';
+    var reply;
+    if (addedN > 0) {
+      var list = names && names.length
+        ? names.slice(0, 3).join('、') + (names.length > 3 ? ' 等共 ' + names.length + ' 项' : '')
+        : addedN + ' 项素材';
+      reply = '已收到' + list + '，已登记为报告素材（上下文现有 **' + reportPool.length +
+        '** 项，发起报告生成时会全部带上）。正式版本中，我会先读取素材内容，再结合你的要求流式作答。';
+    } else if (reportPool.length) {
+      reply = '（原型演示）已收到你的消息：' + quoted + '。正式版本中，我会结合上下文（' + reportPool.length +
+        ' 项）与知识库检索后流式作答。当你表达“开始生成报告”的意图（例如“帮我生成报告”），我会开始提取指标并请你确认。';
+    } else {
+      reply = '（原型演示）已收到你的消息：' + quoted + '。正式版本中，我会结合知识库与平台数据检索后流式作答。' +
+        '你可以随时补充要求或上传素材；当你表达“开始生成报告”的意图（例如“帮我生成报告”），我会开始提取指标并请你确认。';
+    }
+    await typeAgentText(reply, s);
+  }
+
+  /* 打字机文本：先纯文本逐字输出，完成后渲染 markdown（沿用既有气泡样式） */
+  async function typeAgentText(text, s) {
+    var row = el('div', 'ecw-row ecw-agent');
+    var av = el('div', 'ecw-mavatar', agentEmoji());
+    var box = el('div');
+    box.style.maxWidth = '100%';
+    var bubble = el('div', 'ecw-bubble');
+    box.appendChild(bubble);
+    row.appendChild(av);
+    row.appendChild(box);
+    msgs.appendChild(row);
+    var plain = text;
+    var i = 0;
+    while (i < plain.length) {
+      if (s !== undefined && stale(s)) return;     /* 被新会话打断：终止打字 */
+      i = Math.min(plain.length, i + 2);
+      bubble.textContent = plain.slice(0, i);
+      scrollBottom();
+      await sleep(14);
+    }
+    bubble.innerHTML = md(plain);
+    scrollBottom();
+    if (s !== undefined) endSession(s);
+  }
+
   function reportIntro() {
+    renderPoolBar();
     addAgent({
-      text: ' 你好，我是**报告生成助手**。\n\n生成依据**完全可选**——你可以：\n· 通过 **📎 上传按钮** 提供文档（支持多选）\n· 直接粘贴章节内容或素材\n· 或用自然语言描述要求\n\n**输入任意内容即可开始演示**（原型为固定脚本，与输入内容无关）。',
+      text: '你好，我是**报告生成助手**，本模式与网页版 AI 对话一致：\n\n' +
+        '**1. 正常对话** —— 随时发送消息、提问或补充要求，我会正常回答，内容无需一次说完；\n' +
+        '**2. 上下文累积** —— 附件、知识库引用与数据选择结果会累积到输入区上方的**上下文**（可逐项移除），发起生成时全部带上；\n' +
+        '**3. 语义触发** —— 当你表达“开始生成报告”的意图（例如“帮我生成报告”“开始生成”），我会解析素材、提取指标并弹出确认卡请你核对（无开始按钮）；\n' +
+        '**4. 循环确认** —— 会话内出现确认预览卡，点【查看/编辑完整表格】打开大窗（与信息采集表同款表格）：指标名 top3 下拉或手动输入、修改数据、取消采纳＝跳过；顶部可添加指标，添加时先记为待匹配，点【确认匹配】后我才去平台匹配并返回二次确认；无修改确认后开始生成；\n' +
+        '**5. 误触发** —— 直接在确认卡上点“取消”回到对话。',
       chips: [
-        // { label: '开始演示', act: startReportDemo },
-        // { label: '上传附件开始（模拟）', act: function () {
-        //     addUser('📎 《供应商管理素材.docx》（1.4 MB）');
-        //     startReportDemo();
-        //   } }
+        { label: '帮我生成报告', act: function () { startReportWorkflow('帮我生成报告'); } }
       ]
     });
   }
 
-  /* 指标匹配确认卡片 → Promise 返回每项选择 ['default'|'adj'|'skip'] */
-  function addMatchCard() {
-    return new Promise(function (resolve) {
-      var row = el('div', 'ecw-row ecw-agent');
-      var av = el('div', 'ecw-mavatar', agentEmoji());
-      var card = el('div', 'ecw-card ecw-match');
-      card.style.width = '100%';
-      card.appendChild(el('div', 'ecw-cardtitle', '请确认指标匹配（4 项）'));
+  /* ---- 确认表数据（行结构同采集表 collectData） ---- */
+  /* 第二轮提取 mock（新一轮＝新参考素材带来能源类新指标；E-E-14-1-0001 与数据选择演示撞码合并） */
+  var MATCH_DATA_R2 = [
+    {
+      tpl: '综合能源消耗总量', cands: [
+        { code: 'E-E-14-1-0001', name: '能源消耗总量', conf: '0.93', val: '1,771,316 吨标准煤' },
+        { code: 'E-E-14-1-0004', name: '直接能源消耗量', conf: '0.58', val: '268,432 吨标准煤' },
+        { code: 'E-E-14-1-0005', name: '间接能源消耗量', conf: '0.28', val: '1,502,884 吨标准煤' }
+      ]
+    },
+    {
+      tpl: '清洁能源使用量', cands: [
+        { code: 'E-E-14-1-0003', name: '可再生能源消耗总量', conf: '0.9', val: '503,207 吨标准煤' },
+        { code: 'E-E-14-3-0002', name: '可再生清洁能源', conf: '0.33', val: '28.4 %' },
+        { code: 'E-E-14-3-0003', name: '清洁发电量', conf: '0.21', val: '125,680 兆瓦时' }
+      ]
+    }
+  ];
+  var REPORT_TEXT_R2 =
+    '<p>在能源管理方面，报告期内公司综合能源消耗总量为 <b>1,771,316 吨标准煤</b>，' +
+    '其中可再生能源消耗总量 <b>503,207 吨标准煤</b>，持续提升可再生能源占比。</p>';
 
-      var sels = [];                              /* 'default' | 'adj' | 'skip' */
-      MATCH_DATA.forEach(function (grp, gi) {
-        sels.push('default');
-        var g = el('div', 'ecw-mgroup');
-        g.appendChild(el('div', 'ecw-mgname', (gi + 1) + '.「' + escapeHtml(grp.name) + '」'));
-
-        /* 候选指标选项（第一个默认选中） */
-        grp.opts.forEach(function (o, oi) {
-          var opt = el('div', 'ecw-mopt' + (oi === 0 ? ' on' : ''));
-          opt.innerHTML =
-            '<div class="ecw-ml1"><span class="ecw-radio"></span>' +
-            '<span class="ecw-mcode">' + escapeHtml(o.code) + '</span>' +
-            '<span class="ecw-mname">' + escapeHtml(o.name) + '</span>' +
-            '<span class="ecw-mscore' + (o.hi ? ' hi' : '') + '">' + escapeHtml(o.score) + '</span></div>' +
-            '<div class="ecw-mval" title="' + escapeHtml(o.val) + '">' + escapeHtml(o.val) + '</div>';
-          opt.onclick = function () {
-            g.querySelectorAll('.ecw-mopt').forEach(function (n) { n.classList.remove('on'); });
-            opt.classList.add('on');
-            sels[gi] = oi === 0 ? 'default' : 'adj';
-          };
-          g.appendChild(opt);
-        });
-
-        /* 不采用 */
-        var skip = el('div', 'ecw-mopt ecw-skipopt');
-        skip.innerHTML = '<div class="ecw-ml1"><span class="ecw-radio"></span><span style="font-size:12px">不采用</span>' +
-          '<span style="font-size:11px;color:#8a6d3b">（跳过该指标，原文保留）</span></div>';
-        skip.onclick = function () {
-          g.querySelectorAll('.ecw-mopt').forEach(function (n) { n.classList.remove('on'); });
-          skip.classList.add('on');
-          sels[gi] = 'skip';
-        };
-        g.appendChild(skip);
-
-        /* 其他（自定义指标名） */
-        var other = el('div', 'ecw-mopt');
-        var customVal = '';
-        other.innerHTML = '<div class="ecw-ml1"><span class="ecw-radio"></span>' +
-          '<span style="font-size:12px">其他</span>' +
-          '<span style="font-size:11px;color:#98a0ad">（手动输入指标名称）</span></div>' +
-          '<div class="ecw-mcustom"><input class="ecw-mcin" placeholder="请输入指标名称">' +
-          '<button class="ecw-btn ecw-solid">确定</button></div>';
-        var input = other.querySelector('.ecw-mcin');
-        var okBtn = other.querySelector('.ecw-btn');
-        other.onclick = function (e) {
-          if (e.target === input || e.target === okBtn) return;   /* 输入框/按钮自行处理 */
-          g.querySelectorAll('.ecw-mopt').forEach(function (n) { n.classList.remove('on'); });
-          other.classList.add('on', 'ecw-showin');
-          sels[gi] = 'adj';
-          setTimeout(function () { input.focus(); }, 50);
-        };
-        okBtn.onclick = function (e) {
-          e.stopPropagation();
-          customVal = input.value.trim();
-          if (!customVal) { input.focus(); input.placeholder = '请输入指标名称后再确定'; return; }
-          other.querySelector('.ecw-ml1 span:nth-child(3)').textContent = '自定义：' + customVal;
-        };
-        g.appendChild(other);
-
-        card.appendChild(g);
-      });
-
-      /* 底部确认 */
-      var foot = el('div', 'ecw-mfoot');
-      var hint = el('span', 'ecw-mfhint', '默认采用最高分匹配，可调整或跳过');
-      var bOk = el('button', 'ecw-btn ecw-solid', '确认匹配');
-      bOk.onclick = function () {
-        /* 校验：选了「其他」但未填名称 */
-        var groups = card.querySelectorAll('.ecw-mgroup');
-        for (var i = 0; i < groups.length; i++) {
-          var optList = groups[i].querySelectorAll('.ecw-mopt');
-          var o = optList[optList.length - 1];   /* 最后一个选项 = 其他 */
-          if (o.classList.contains('on') && o.querySelector('.ecw-mcin').value.trim() === '') {
-            hint.textContent = '第 ' + (i + 1) + ' 项选择了「其他」，请输入指标名称后确定';
-            hint.style.color = '#d97a00';
-            o.querySelector('.ecw-mcin').focus();
-            return;
-          }
-        }
-        card.classList.add('ecw-locked');
-        bOk.textContent = '✓ 已确认';
-        bOk.disabled = true;
-        hint.textContent = '';
-        resolve(sels.slice());
-      };
-      foot.appendChild(hint);
-      foot.appendChild(bOk);
-      card.appendChild(foot);
-
-      row.appendChild(av); row.appendChild(card);
-      msgs.appendChild(row);
-      scrollBottom();
-    });
+  /* 「手动输入 / 添加指标」重匹配 mock：按名称关键词给 top3 候选（new_samples 通道演示） */
+  var REMATCH_DICT = [
+    { kw: /供应商/, top: { code: 'SOC-005', name: '供应商总数', val: '5,173 家' } },
+    { kw: /能源|能耗/, top: { code: 'E-E-14-1-0001', name: '能源消耗总量', val: '1,771,316 吨标准煤' } },
+    { kw: /员工|流失|培训/, top: { code: 'S-S-4-2-0001', name: '员工培训覆盖率', val: '100%' } },
+    { kw: /碳排放|温室气体/, top: { code: 'E-E-1-1-0004', name: '温室气体排放总量', val: '832,123.47 tCO2e' } },
+    { kw: /水/, top: { code: 'E-E-15-1-0001', name: '总耗水量', val: '35,216,804 吨' } }
+  ];
+  var REMATCH_FILLERS = [
+    { code: 'SOC-008', name: '供应商筛选原则', val: '涵盖环境面向、社会面向、治理面向和业务四大面向,…' },
+    { code: 'E-E-5-1-0002', name: '无害废弃物产生总量', val: '486,210.7 吨' }
+  ];
+  function mockRematch(name) {
+    /* 演示「平台未命中」：名称含「自定义」即无候选，确认后该行按未匹配呈现、可手输 */
+    if (/自定义/.test(name)) return [];
+    var top = null;
+    REMATCH_DICT.forEach(function (d) { if (!top && d.kw.test(name)) top = d.top; });
+    if (!top) top = { code: 'SOC-005', name: '供应商总数', val: '5,173 家' };
+    return [
+      { code: top.code, name: top.name, conf: '0.88', val: top.val },
+      { code: REMATCH_FILLERS[0].code, name: REMATCH_FILLERS[0].name, conf: '0.31', val: REMATCH_FILLERS[0].val },
+      { code: REMATCH_FILLERS[1].code, name: REMATCH_FILLERS[1].name, conf: '0.12', val: REMATCH_FILLERS[1].val }
+    ];
   }
 
-  /* 报告生成固定演示：解析 → 匹配确认 → 已确认 → 报告 */
-  async function startReportDemo() {
-    var s = startSession();
-    /* ① 解析完成 */
-    showTyping('正在解析素材…');
-    await sleep(1000);
-    if (stale(s)) return;
-    hideTyping();
-    addAgent({
-      text: '**解析完成：提取到 4 个指标**\n指标列表：\n· 供应商区域分布\n· 供应商类型分布\n· 供应商总数\n· 重大供应商筛选原则'
+  /* 组装本轮确认行（行结构同采集表）：
+     AI 提取行＝tpl＋top3 cands（默认选中最高分）；数据选择行＝直置已匹配行（无下拉、数值入数据列）；
+     撞同一平台指标合并为一行（来源标数据选择）；已确认过的平台指标不再出现（轮间增量） */
+  function buildWorkflowItems(round) {
+    var src = round === 1 ? MATCH_DATA : MATCH_DATA_R2;
+    var confirmedCodes = {};
+    reportConfirmed.forEach(function (c) { confirmedCodes[c.code] = true; });
+    var dataItems = [];
+    var dataCodes = {};
+    reportPool.forEach(function (p) {
+      if (p.kind !== 'data' || !p.data) return;
+      var d = p.data;
+      if (confirmedCodes[d.ind.code]) return;         /* 已确认过：不重复出现 */
+      var objs = dimQueryObjs(d.dim);
+      if (!objs.length) return;
+      dataCodes[d.ind.code] = true;
+      var unit = d.ind.unit && d.ind.unit !== '—' ? ' ' + d.ind.unit : '';
+      var val = dsCellVal(d.ind, d.year, objs[0]) + unit + (objs.length > 1 ? '（等 ' + objs.length + ' 行）' : '');
+      dataItems.push({
+        tpl: d.ind.name + '（' + (d.year || DS_CUR_YEAR) + '年 · ' + dimSum(d.dim) + '）',
+        ind: d.ind.name, code: d.ind.code, val: val,
+        src: 'data', cands: null, sel: 0, manual: false, adopted: true,
+        edited: false, refreshed: false
+      });
     });
-    await sleep(700);
-    if (stale(s)) return;
-    /* ② 匹配确认（交互） */
-    showTyping('正在匹配平台指标库…');
+    var aiItems = [];
+    src.forEach(function (g) {
+      if (confirmedCodes[g.cands[0].code]) return;     /* 已确认项不重复出现 */
+      if (dataCodes[g.cands[0].code]) return;          /* 与数据选择撞同一平台指标：合并为一行 */
+      aiItems.push({
+        tpl: g.tpl,
+        ind: g.cands[0].name, code: g.cands[0].code, val: g.cands[0].val,
+        src: 'ai', cands: g.cands, sel: 0, manual: false, adopted: true,
+        edited: false, refreshed: false
+      });
+    });
+    return dataItems.concat(aiItems);
+  }
+
+  /* ---- 发起工作流（语义触发唯一入口） ---- */
+  async function startReportWorkflow(triggerText) {
+    var s = startSession();
+    showTyping('正在解析素材…');
     await sleep(900);
     if (stale(s)) return;
     hideTyping();
-    var sels = await addMatchCard();
-    if (stale(s)) return;
-    /* ③ 已确认汇总（按实际选择统计） */
-    var adopt = 0, adj = 0, skip = 0;
-    sels.forEach(function (s) {
-      if (s === 'default') adopt++;
-      else if (s === 'adj') adj++;
-      else skip++;
+    var poolN = reportPool.length;
+    var subs = reportPool.slice(0, 3).map(function (p) {
+      return p.label + '（' + ({ attach: '附件', kb: '知识库', data: '数据选择' })[p.kind] + '）';
     });
-    var summary = '已确认：' + adopt + '/4 个指标采用' +
-      (adj ? '，人工调整 ' + adj + ' 个' : '') +
-      (skip ? '，跳过 ' + skip + ' 个' : '');
-    addAgent({ text: '**' + summary + '**' });
-    /* ④ 报告生成 */
+    if (poolN > 3) subs.push('…共 ' + poolN + ' 项素材');
+    var round = reportVersion + 1;
+    await addProgressPlain('解析素材并提取指标', [
+      { label: '解析上下文（' + poolN + ' 项素材）与触发消息' + (triggerText ? '：“' + String(triggerText).slice(0, 20) + '”' : ''), dur: 900, sub: subs },
+      { label: round === 1 ? '从素材中提取定量指标' : '从新增素材中提取定量指标（已确认项不重复出现）', dur: 800 },
+      { label: '匹配平台指标库（top3 候选与当前值）', dur: 700 }
+    ]);
+    if (stale(s)) return;
+    endSession(s);                       /* 确认卡等待期间不占用输入（工作流挂起态可正常对话） */
+    var items = buildWorkflowItems(round);
+    if (!items.length) {
+      addAgent({
+        text: '本次未提取到需要确认的新增指标' +
+          (reportConfirmed.length ? '（已确认的 ' + reportConfirmed.length + ' 项指标继续生效）' : '') +
+          '。可补充新的参考素材后再次发起。'
+      });
+      return;
+    }
+    addAgent({ text: '**解析完成：提取到 ' + items.length + ' 个指标**\n' +
+      items.map(function (it, i) { return (i + 1) + '. ' + it.tpl; }).join('\n') });
+    reportFlow = { round: round, items: items, card: null };
+    showReportCard();
+  }
+
+  /* ---- 确认表（2026-09-14 用户定型：字段与展现形式与信息采集表完全一致——同一张 9 列表格、
+     top3 下拉/手动输入/数值编辑/是否采纳全部同款；唯一不同＝大窗顶部多一行「添加指标」） ---- */
+  var REPORT_SRC = {
+    ai: { label: 'AI提取', cls: 'ecw-srctag-ai' },
+    data: { label: '数据选择', cls: 'ecw-srctag-data' },
+    manual: { label: '手动添加', cls: 'ecw-srctag-manual' }
+  };
+
+  /* 旧卡置灰并停用（被新全量卡取代 / 被取消） */
+  function staleReportCard(note) {
+    if (!reportFlow || !reportFlow.card) return;
+    var card = reportFlow.card;
+    card.classList.add('ecw-stale');
+    card.classList.remove('ecw-showadd');
+    var foot = card.querySelector('.ecw-mfoot');
+    if (foot) foot.innerHTML = '<span class="ecw-mfhint">' + escapeHtml(note) + '</span>';
+  }
+
+  /* 行内标记（报告版；paintRowMarks 的报告专用副本——共享函数不动，用户约束 2026-09-14）：
+     待匹配＝手动添加行尚未平台匹配（点【确认匹配】才匹配）；已修改（跨轮持续）；
+     已刷新（仅最新一轮）；低置信＝当前候选 < 0.85（仅提示不阻断） */
+  function paintReportMarks(tdCell, d) {
+    var box = tdCell.querySelector('.ecw-rowmark');
+    if (!box) return;
+    var html = '';
+    if (d.pending) html += '<span class="ecw-rowtag ecw-rowtag-pd">待匹配</span>';
+    if (d.edited) html += '<span class="ecw-rowtag ecw-rowtag-ed">已修改</span>';
+    if (d.refreshed) html += '<span class="ecw-rowtag ecw-rowtag-rf">已刷新</span>';
+    if ((d.src === 'ai' || d.src === 'manual') && d.cands && d.cands.length && !d.manual) {
+      var c = d.cands[d.sel || 0];
+      if (c && parseFloat(c.conf) < 0.85) html += '<span class="ecw-rowtag ecw-rowtag-lc">低置信</span>';
+    }
+    box.innerHTML = html;
+  }
+
+  /* 确认表格（与采集表 buildXlsTable 同一形态：9 列、同类名同交互，来源列标签换报告语义；
+     报告界面一律纯文字，用户约束 2026-09-14）。
+     平台对应指标名三分支：
+       · 有候选（AI提取行 / 已匹配的手动添加行）＝top3 下拉（含「手动输入」，切手输后为
+         空输入框＋「返回候选」，未填写不能提交）；
+       · 手动添加且未确认匹配（pending）＝只读「待匹配」，点【确认匹配】才去平台匹配；
+       · 已匹配但无候选＝未匹配行，可手输（同采集表未命中逻辑）。
+     数据选择行直置只读；数据列（单列，取最新收集年份值）可点击编辑；是否采纳可勾选（取消＝整行置灰不采用）；
+     来源列：行来源标签（AI提取/数据选择/手动添加），手动添加行匹配后并排标注 AI匹配/未匹配；
+     onEdit(e)＝控件编辑即时上报 {idx,f,v}，供大窗确认时收集变更（与采集表一致）。
+     行数据字段＝单字段 val（2026-09-14 用户改列：两期列合并为单列「数据」） */
+  function buildReportTable(editable, from, to, onEdit, data) {
+    function commit(idx, f, v, tr) {            /* 编辑写回数据＋标记「已修改」＋上报 */
+      var d = data[idx];
+      d.edited = true;
+      if (tr) paintReportMarks(tr.lastElementChild, d);
+      if (onEdit) onEdit({ idx: idx, f: f, v: v });
+    }
+    var t = el('table', 'ecw-tbl');
+    var thead = el('thead');
+    thead.innerHTML = '<tr><th style="width:46px">#</th><th style="width:23%">素材指标名</th>' +
+      '<th>平台对应指标名</th><th style="width:100px">平台对应指标编码</th>' +
+      '<th style="width:110px">数据</th>' +
+      '<th style="width:66px">来源</th><th style="width:46px">是否采纳</th><th style="width:64px">状态</th></tr>';
+    t.appendChild(thead);
+    var tbody = el('tbody');
+    for (var i = from; i < to; i++) {
+      (function (idx) {
+        var d = data[idx];
+        var tr = el('tr');
+        tr.setAttribute('data-row', String(idx));
+        if (!d.adopted) tr.className = 'ecw-off';
+
+        /* # */
+        var tdNo = el('td', null, String(idx + 1));
+
+        /* 素材指标名（素材原文/添加指标时输入的名称，只读） */
+        var tdTpl = el('td', null, escapeHtml(d.tpl));
+
+        /* 平台对应指标编码（只读，随下拉联动）——先创建，供下拉 onchange 闭包引用 */
+        var tdCode = el('td', null, d.code ? escapeHtml(d.code) : '<span style="color:#c2cad8">无</span>');
+
+        /* 平台对应指标名 */
+        var tdInd = el('td');
+        if ((d.src === 'ai' || d.src === 'manual') && editable) {
+          if (!d.cands) {
+            /* 手动添加·待匹配：添加时不匹配，点【确认匹配】后才去平台找对应指标 */
+            tdInd.innerHTML = '<span style="color:#98a0ad">待匹配</span>';
+          } else if (!d.cands.length) {
+            /* 未匹配：平台未找到对应指标，可直接手输（同采集表未命中行） */
+            tdInd.className = 'ecw-edit ecw-ph ecw-misscell';
+            tdInd.setAttribute('data-ph', '可手输指标名（可留空）');
+            tdInd.contentEditable = 'true';
+            tdInd.innerText = d.ind == null ? '' : d.ind;
+            tdInd.onblur = function () {
+              var v = (tdInd.innerText || '').replace(/\s+/g, ' ').trim();
+              if (v !== (d.ind == null ? '' : d.ind)) {
+                d.ind = v;
+                commit(idx, 'ind', v, tr);
+                tdInd.innerText = v;
+              }
+            };
+          } else {
+          /* 下拉与手输两种形态可互切；manual 状态持久——重开表格仍以输入框回显手输名称 */
+          var makeSel = function () {
+            var sel = el('select', 'ecw-xsel');
+            sel.title = 'AI 匹配 top3 候选（含置信度）；选「手动输入」改为直接输入名称';
+            d.cands.forEach(function (c, ci) {
+              if (parseFloat(c.conf) <= 0.5) return;   /* 候选过滤阈值 0.5：不高于阈值的候选不进下拉 */
+              var o = el('option', null, escapeHtml(c.name) + '（' + c.conf + '）');
+              o.value = String(ci);
+              sel.appendChild(o);
+            });
+            var oManual = el('option', null, '手动输入');
+            oManual.value = 'manual';
+            sel.appendChild(oManual);
+            sel.value = String(d.sel || 0);
+            sel.onchange = function () {
+              if (sel.value === 'manual') {       /* 切为手输输入框：清空候选名，待用户输入 */
+                d.manual = true;
+                d.ind = ''; d.code = '';
+                tdCode.innerHTML = '<span style="color:#c2cad8">无</span>';
+                paintInd();
+                return;
+              }
+              var ci = parseInt(sel.value, 10);
+              d.sel = ci; d.manual = false;
+              d.ind = d.cands[ci].name; d.code = d.cands[ci].code;
+              tdCode.innerHTML = escapeHtml(d.code);
+              commit(idx, 'ind', d.ind, tr);
+            };
+            return sel;
+          };
+          var makeInput = function () {
+            var box = el('div');
+            box.style.cssText = 'display:flex;align-items:center;gap:4px';
+            var inCell = el('div', 'ecw-edit ecw-ph', escapeHtml(d.ind || ''));
+            inCell.contentEditable = 'true';
+            inCell.setAttribute('data-ph', '请输入指标名称');
+            inCell.style.cssText = 'flex:1;min-width:100px;outline:none';
+            inCell.title = '手动输入平台指标名称；未填写不能提交（可点「返回候选」改回下拉，或取消该行采纳）';
+            inCell.onblur = function () {
+              var v = (inCell.innerText || '').replace(/\s+/g, ' ').trim();
+              if (!v) {                           /* 留空＝保持手输待填状态，提交时校验拦截 */
+                inCell.innerHTML = '';
+                return;
+              }
+              d.ind = v;
+              d.code = '';                        /* 手输名称暂无平台编码 */
+              tdCode.innerHTML = '<span style="color:#c2cad8">无</span>';
+              commit(idx, 'ind', v, tr);
+            };
+            var back = el('span', null, '返回候选');
+            back.title = '回到 top3 候选下拉（恢复候选的名称与编码）';
+            back.style.cssText = 'flex-shrink:0;font-size:11px;color:#3f7afa;cursor:pointer';
+            back.onclick = function () {
+              var c = d.cands[d.sel || 0] || d.cands[0];
+              d.manual = false;
+              d.ind = c ? c.name : '';
+              d.code = c ? c.code : '';
+              tdCode.innerHTML = d.code ? escapeHtml(d.code) : '<span style="color:#c2cad8">无</span>';
+              paintInd();
+            };
+            box.appendChild(inCell);
+            box.appendChild(back);
+            setTimeout(function () { inCell.focus(); }, 30);
+            return box;
+          };
+          var paintInd = function () {
+            tdInd.innerHTML = '';
+            tdInd.appendChild(d.manual ? makeInput() : makeSel());
+          };
+          paintInd();
+          }
+        } else {
+          /* 只读形态：数据选择直置 / 预览卡 */
+          if (d.src === 'manual' && !d.cands) {
+            tdInd.innerHTML = '<span style="color:#98a0ad">待匹配</span>';
+          } else {
+            tdInd.innerHTML = escapeHtml(d.ind == null ? '' : d.ind);
+            if (d.cands && !d.cands.length) tdInd.className = 'ecw-misscell';
+          }
+        }
+
+        /* 数据列（最新收集年份取值，单列）：可直接点击编辑（人工填写不会被后续匹配覆盖） */
+        function valTd(f) {
+          var td = el('td', 'ecw-edit', escapeHtml(d[f] == null ? '' : d[f]));
+          if (editable) {
+            td.contentEditable = 'true';
+            td.setAttribute('data-i', String(idx));
+            td.setAttribute('data-f', f);
+            td.onblur = function () {
+              var v = (td.innerText || '').replace(/\s+/g, ' ').trim();
+              if (v !== (d[f] == null ? '' : d[f])) {
+                d[f] = v;
+                commit(idx, f, v, tr);
+                td.innerText = v;
+              }
+            };
+          }
+          return td;
+        }
+
+        /* 来源徽标（同款 srctag 样式）：AI提取=橙 / 数据选择=黄 / 手动添加=蓝；
+           手动添加行经平台匹配后并排标注匹配结果：AI匹配(橙) / 未匹配(灰) */
+        var sm = REPORT_SRC[d.src] || REPORT_SRC.ai;
+        var srcHtml = '<span class="ecw-srctag ' + sm.cls + '">' + sm.label + '</span>';
+        if (d.src === 'manual' && d.cands) {
+          var mt = d.cands.length
+            ? { label: 'AI匹配', cls: 'ecw-srctag-ai' }
+            : { label: '未匹配', cls: 'ecw-srctag-miss' };
+          srcHtml += ' <span class="ecw-srctag ' + mt.cls + '">' + mt.label + '</span>';
+        }
+        var tdSrc = el('td', null, srcHtml);
+
+        /* 是否采纳：默认勾选，取消后整行置灰 */
+        var tdAdopt;
+        if (editable) {
+          tdAdopt = el('td');
+          var cb = el('input', 'ecw-adopt');
+          cb.type = 'checkbox';
+          cb.checked = d.adopted;
+          cb.title = '取消勾选＝该行不采用（跳过，不参与本次生成）';
+          cb.onchange = function () {
+            d.adopted = cb.checked;
+            tr.classList.toggle('ecw-off', !cb.checked);
+            commit(idx, 'adopt', cb.checked ? '是' : '否', tr);
+          };
+          tdAdopt.appendChild(cb);
+        } else {
+          /* 预览：原生勾选框（禁用）示意采纳，未采纳显文字 */
+          tdAdopt = el('td', null, d.adopted
+            ? '<input type="checkbox" class="ecw-adopt" checked disabled>'
+            : '<span style="color:#98a0ad">否</span>');
+        }
+
+        /* 状态列（行尾）：待匹配 / 已修改 / 已刷新 / 低置信（paintReportMarks） */
+        var tdMark = el('td', null, '<span class="ecw-rowmark"></span>');
+        paintReportMarks(tdMark, d);
+
+        tr.appendChild(tdNo);
+        tr.appendChild(tdTpl);
+        tr.appendChild(tdInd);
+        tr.appendChild(tdCode);
+        tr.appendChild(valTd('val'));
+        tr.appendChild(tdSrc);
+        tr.appendChild(tdAdopt);
+        tr.appendChild(tdMark);
+        tbody.appendChild(tr);
+      })(i);
+    }
+    t.appendChild(tbody);
+    return t;
+  }
+
+  function showReportCard() {
+    var flow = reportFlow;
+    var items = flow.items;
+    flow.card = null;
+    flow.bOk = null;
+    var row = el('div', 'ecw-row ecw-agent');
+    var av = el('div', 'ecw-mavatar', agentEmoji());
+    var card = el('div', 'ecw-card ecw-match');
+    card.style.width = '100%';
+    card.appendChild(el('div', 'ecw-cardtitle', '指标匹配确认（共 ' + items.length + ' 项 · 完整表格内编辑）' +
+      (reportConfirmed.length ? ' · 本轮新增' : '')));
+    if (reportConfirmed.length) {
+      card.appendChild(el('div', 'ecw-mnote', '已确认 ' + reportConfirmed.length + ' 项指标继续生效，本轮仅确认新增项。'));
+    }
+
+    var wrap = el('div', 'ecw-tblwrap');
+    wrap.appendChild(buildReportTable(false, 0, Math.min(PREVIEW_N, items.length), null, items));
+    card.appendChild(wrap);
+    if (items.length > PREVIEW_N) {
+      var more = el('div', 'ecw-xlsmore', '仅预览前 ' + PREVIEW_N + ' 行 / 共 ' + items.length + ' 项 · 点击查看/编辑完整表格');
+      more.onclick = openReportFullList;
+      card.appendChild(more);
+    }
+
+    var foot = el('div', 'ecw-mfoot');
+    var hint = el('span', 'ecw-mfhint', '');   /* 常驻提示隐藏（界面精简）；元素保留供校验错误显示 */
+    var bCancel = el('button', 'ecw-btn', '取消');
+    bCancel.type = 'button';
+    bCancel.onclick = function () {
+      staleReportCard('已取消本次报告生成');
+      reportFlow = null;
+      addSystem('已取消本次报告生成，回到对话；上下文保留，可再次发起');
+    };
+    var bOpen = el('button', 'ecw-btn', '查看/编辑完整表格');
+    bOpen.type = 'button';
+    bOpen.onclick = openReportFullList;
+    var bOk = el('button', 'ecw-btn ecw-solid', '确认匹配');
+    bOk.type = 'button';
+    bOk.onclick = function () {
+      /* 卡上确认＝当前无未应用的修改（修改只在大窗内进行且确认时应用），防御性校验后直接终确 */
+      var err = reportItemsError(items);
+      if (err) { hint.textContent = err.msg; hint.style.color = '#d97a00'; return; }
+      finalizeReport(items, card, bOk);
+    };
+    foot.appendChild(hint);
+    foot.appendChild(bCancel);
+    foot.appendChild(bOpen);
+    foot.appendChild(bOk);
+    card.appendChild(foot);
+
+    row.appendChild(av);
+    row.appendChild(card);
+    msgs.appendChild(row);
+    flow.card = card;
+    flow.bOk = bOk;
+    scrollBottom();
+  }
+
+  /* ---- 完整表格大窗（2026-09-14 定型：与采集表 openFullTable 同一形态——同一张 9 列可编辑表格、
+     编辑即时记录 {idx,f,v} 按 idx+f 去重；直接关闭＝丢弃未确认修改；
+     唯一不同＝顶部常驻「添加指标」行）。确认：有修改 → 重匹配返回全量卡；无修改 ＝ 终确开始生成 ---- */
+  function openReportFullList() {
+    if (!reportFlow) return;
+    var local = reportFlow.items.map(function (it) {   /* 编辑在副本上进行，确认才写回 */
+      return {
+        tpl: it.tpl, ind: it.ind, code: it.code, val: it.val,
+        src: it.src, cands: it.cands, sel: it.sel || 0, manual: !!it.manual,
+        pending: !!it.pending, edited: !!it.edited, refreshed: !!it.refreshed, adopted: it.adopted !== false
+      };
+    });
+    var edits = [];                       /* 本轮编辑 {idx,f,v}，按 idx+f 去重（后改覆盖先改） */
+    function onEdit(e) {
+      var found = null;
+      edits.forEach(function (x) { if (x.idx === e.idx && x.f === e.f) found = x; });
+      if (found) found.v = e.v; else edits.push(e);
+    }
+    var mask = el('div', 'ecw-kbmask');
+    var dlg = el('div', 'ecw-bigdlg');
+    var h = el('div', 'ecw-bigh');
+    var b = el('div', 'ecw-bigb');
+    // b.appendChild(el('div', 'ecw-xlshint',
+    //   '平台指标名：AI提取行可从 top3 下拉选择或「手动输入」（未填写不能提交）、数据选择行直置只读；' +
+    //   '数据列可直接点击修改。取消勾选「是否采纳」＝该行不采用（跳过，不参与本次生成）。' +
+    //   '顶部「添加指标」行可新增指标——添加时只登记为「待匹配」，点【确认匹配】后才去平台匹配并返回二次确认。' +
+    //   '有修改点【确认匹配】将重新匹配并再次确认；无修改确认即开始生成。'));
+
+    /* 添加指标行（大窗顶部常驻；与采集表的唯一不同。添加时不匹配：只登记素材指标名＋来源手动添加＋
+       待匹配状态；点【确认匹配】才与本次其他修改一起走平台匹配，返回二次确认） */
+    var addRow = el('div', 'ecw-maddrow');
+    var addIn = el('input', 'ecw-maddin');
+    addIn.placeholder = '输入指标名称，或粘贴参考文件中的表述原文';
+    var addBtn = el('button', 'ecw-btn ecw-solid', '添加指标');
+    addBtn.type = 'button';
+    addRow.appendChild(addIn);
+    addRow.appendChild(addBtn);
+    b.appendChild(addRow);
+
+    var tblWrap = el('div');
+    b.appendChild(tblWrap);
+
+    var f = el('div', 'ecw-bigf');
+    var warn = el('span', 'ecw-mfhint');
+    var bCancel = el('button', 'ecw-btn', '取消');
+    bCancel.type = 'button';
+    var bOk = el('button', 'ecw-btn ecw-solid', '确认匹配');
+    bOk.type = 'button';
+    f.appendChild(warn);
+    f.appendChild(bCancel);
+    f.appendChild(bOk);
+    dlg.appendChild(h);
+    dlg.appendChild(b);
+    dlg.appendChild(f);
+    mask.appendChild(dlg);
+    root.appendChild(mask);
+
+    function close() { mask.classList.remove('open'); mask.remove(); }
+    function paintHead() {
+      h.innerHTML = '指标匹配确认 · 完整表格（共 ' + local.length + ' 项）<button type="button" title="关闭">关闭</button>';
+      h.querySelector('button').onclick = close;
+    }
+    function rebuild() {                 /* 新增行后整表重建（编辑状态在 local 与 edits，不丢失） */
+      tblWrap.innerHTML = '';
+      tblWrap.appendChild(buildReportTable(true, 0, local.length, onEdit, local));
+    }
+    paintHead();
+    rebuild();
+    requestAnimationFrame(function () { mask.classList.add('open'); });
+
+    h.querySelector('button').onclick = close;
+    bCancel.onclick = close;                    /* 丢弃未确认的修改并关闭（与采集表一致） */
+
+    addBtn.onclick = function () {
+      var v = addIn.value.trim();
+      if (!v) { addIn.focus(); addIn.placeholder = '请输入指标名称或表述原文'; return; }
+      /* 添加时不做匹配：仅登记素材指标名＋来源手动添加＋待匹配（平台对应指标名/编码/数值留空） */
+      local.push({
+        tpl: v, ind: '', code: '', val: '',
+        src: 'manual', cands: null, sel: 0, manual: false,
+        pending: true, edited: false, refreshed: false, adopted: true
+      });
+      edits.push({ idx: local.length - 1, f: 'add', v: v });
+      rebuild();
+      paintHead();
+      addIn.value = '';
+      addIn.placeholder = '输入指标名称，或粘贴参考文件中的表述原文';
+      warn.style.color = '';
+      warn.textContent = '已添加「' + v + '」：点【确认匹配】后去平台匹配，并返回二次确认';
+      b.scrollTop = b.scrollHeight;
+    };
+
+    bOk.onclick = function () {
+      /* 校验（同采集表规则）：切了「手动输入」但未填名称的采纳行 → 红框定位拦截 */
+      tblWrap.querySelectorAll('tr.ecw-blockrow').forEach(function (n) { n.classList.remove('ecw-blockrow'); });
+      var blocked = [];
+      local.forEach(function (d, i) {
+        if (d.adopted !== false && (d.src === 'ai' || d.src === 'manual') && d.manual && !(d.ind || '').replace(/\s+/g, '')) blocked.push(i);
+      });
+      if (blocked.length) {
+        warn.style.color = '#e5484d';
+        warn.textContent = '第 ' + blocked.map(function (i) { return i + 1; }).join('、') +
+          ' 行已选「手动输入」但未填写指标名称：请输入、点「返回候选」改回下拉，或取消该行采纳';
+        blocked.forEach(function (i) {
+          var trB = tblWrap.querySelector('tr[data-row="' + i + '"]');
+          if (trB) trB.classList.add('ecw-blockrow');
+        });
+        return;
+      }
+      /* 全部行取消采纳 → 拦截（不允许全部跳过） */
+      if (local.every(function (d) { return !d.adopted; })) {
+        warn.style.color = '#e5484d';
+        warn.textContent = '全部行均已取消采纳：请至少保留一项，或点「取消」放弃本次生成';
+        return;
+      }
+      warn.textContent = '';
+      close();
+      reportFlow.items = local;
+      if (edits.length) rematchReportFlow(edits);                    /* 轮内循环：重匹配→全量卡再确认 */
+      else finalizeReport(local, reportFlow.card, reportFlow.bOk);   /* 无修改＝终确 */
+    };
+  }
+
+  /* 确认校验（同采集表规则）：手输未填名的采纳行 → 拦截并定位；全部取消采纳 → 拦截 */
+  function reportItemsError(items) {
+    for (var i = 0; i < items.length; i++) {
+      var d = items[i];
+      if (d.adopted !== false && (d.src === 'ai' || d.src === 'manual') && d.manual && !(d.ind || '').replace(/\s+/g, '')) {
+        return { blocked: [i], msg: '第 ' + (i + 1) + ' 行已选「手动输入」但未填写指标名称：请输入、点「返回候选」改回下拉，或取消该行采纳', idx: i };
+      }
+    }
+    if (items.every(function (it) { return !it.adopted; })) {
+      return { allSkip: true, msg: '全部行均已取消采纳：请至少保留一项，或点「取消」放弃本次生成', idx: -1 };
+    }
+    return null;
+  }
+
+  /* 轮内循环（同采集表 applyEdits 形态）：大窗确认且存在修改 → 重匹配变更行 → 旧卡置灰 →
+     返回全量卡再确认；无修改确认＝终确。
+     匹配时机（用户定型 2026-09-14）：手动添加行此时才去平台匹配（top3 默认最高分，无候选＝
+     未匹配可手输）；既有行改名（手动输入）保留原来源标签一并重匹配 */
+  async function rematchReportFlow(edits) {
+    var s = startSession();
+    showTyping('正在重新匹配变更行…');
+    await sleep(700);
+    if (stale(s)) return;
+    hideTyping();
+    var items = reportFlow.items;
+    var FIELD_LABEL = { ind: '平台指标名', code: '平台编码', val: '数据', adopt: '是否采纳', add: '添加指标' };
+    var subs = edits.slice(0, 4).map(function (e) {
+      if (e.f === 'add') return '第' + (e.idx + 1) + '行（手动添加）：去平台匹配新指标';
+      return '第' + (e.idx + 1) + '行 ' + (FIELD_LABEL[e.f] || e.f) + '改为「' + e.v + '」';
+    });
+    if (edits.length > 4) subs.push('…共 ' + edits.length + ' 处变更');
+    await addProgressPlain('重新匹配变更行', [
+      { label: '按修改重新匹配并更新候选（' + edits.length + ' 处变更）', dur: 900, sub: subs },
+      { label: '手动添加的指标已完成平台匹配；改名行保留原来源一并重匹配', dur: 700 }
+    ]);
+    if (stale(s)) return;
+    endSession(s);
+    items.forEach(function (d) { d.refreshed = false; });   /* 蓝标仅保留最新一轮 */
+    items.forEach(function (d, i) {
+      var touched = edits.some(function (e) { return e.idx === i; });
+      if (d.src === 'manual' && !d.cands) {
+        /* 手动添加行：点【确认匹配】后才去平台匹配（无候选＝未匹配，平台指标名可手输） */
+        if (d.adopted === false) return;              /* 已取消采纳的行不再匹配 */
+        d.cands = mockRematch(d.tpl);
+        d.pending = false;
+        d.sel = 0; d.manual = false;
+        if (d.cands.length) {
+          d.ind = d.cands[0].name; d.code = d.cands[0].code; d.val = d.cands[0].val;
+        } else {
+          d.ind = ''; d.code = '';
+        }
+        d.edited = true; d.refreshed = true;
+      } else if (d.adopted !== false && d.manual && (d.ind || '').trim()) {
+        /* 既有行改名（手动输入）：保留原来源标签，重匹配 top3 默认最高分；无候选＝未匹配 */
+        d.cands = mockRematch(d.ind);
+        d.sel = 0; d.manual = false;
+        if (d.cands.length) {
+          d.ind = d.cands[0].name; d.code = d.cands[0].code; d.val = d.cands[0].val;
+        } else {
+          d.code = '';                                /* 保留手输名称，行转未匹配 */
+        }
+        d.edited = true; d.refreshed = true;
+      } else if (touched) {
+        d.refreshed = true;
+      }
+    });
+    staleReportCard('已按此版本提交；修改已重新匹配，见下方新的确认卡');
+    addSystem('已按你的修改重新匹配（含手动添加指标的平台匹配），请再次确认全量 ' + items.length + ' 项（无修改时确认即为终确）');
+    showReportCard();
+  }
+
+  async function finalizeReport(items, card, bOk) {
+    var adopt = 0, skip = 0, manual = 0, dataN = 0;
+    items.forEach(function (it) {
+      if (!it.adopted) { skip++; return; }                 /* 不采用＝跳过该行 */
+      var o = (it.src === 'data' || it.manual || !it.cands)
+        ? { code: it.code, name: it.ind }
+        : (it.cands[it.sel || 0] || {});
+      adopt++;
+      if (it.src === 'manual') manual++;
+      if (it.src === 'data') dataN++;
+      if (o.code) {                                        /* 有平台编码的采纳行沉淀映射 */
+        reportConfirmed = reportConfirmed.filter(function (c) { return c.code !== o.code; });
+        reportConfirmed.push({
+          code: o.code, name: o.name, val: it.val || '',
+          source: it.src === 'data' ? '数据选择' : (it.src === 'manual' ? '手动添加' : 'AI提取')
+        });
+      }
+    });
+    card.classList.add('ecw-locked');
+    card.classList.remove('ecw-showadd');
+    bOk.textContent = '已确认';
+    bOk.disabled = true;
+    card.querySelectorAll('button').forEach(function (btn) { btn.disabled = true; });   /* 含「查看/编辑完整表格」入口 */
+    reportFlow = null;
+    /* 流程 D：映射沉淀（独立报告映射表，纯后台资产——mock 以系统消息示意） */
+    addSystem('本轮映射已沉淀至报告映射表（采纳且有平台编码的行，含来源标签）；已确认指标集累计 ' + reportConfirmed.length + ' 项');
+    addAgent({
+      text: '**已确认：' + adopt + ' 项采用' +
+        (manual ? '，其中手动添加 ' + manual + ' 项' : '') +
+        (dataN ? '，其中数据选择 ' + dataN + ' 项' : '') +
+        (skip ? '，跳过 ' + skip + ' 项' : '') + '**'
+    });
+    /* 流程 C：生成式撰写（mock） */
+    var s = startSession();
     showTyping('正在生成报告…');
     await sleep(1500);
     if (stale(s)) return;
     hideTyping();
     endSession(s);
-    addAgent({ text: '**报告生成完成（1.9s）**' });
+    reportVersion++;
+    addAgent({ text: '**报告生成完成（第 ' + reportVersion + ' 版）**' });
+    var html = REPORT_TEXT + (reportVersion >= 2 ? REPORT_TEXT_R2 : '');
     addDocCard({
-      title: '报告生成结果',
-      html: REPORT_TEXT,
-      note: '可编辑纯文本 · 指标数值已按接口数据替换',
+      title: '报告草稿 · 第 ' + reportVersion + ' 版',
+      html: html,
+      note: '基于已确认 ' + reportConfirmed.length + ' 项指标生成 · 可编辑纯文本（直接修改正文）',
       download: {
-        name: '报告生成结果（AI草稿）.doc',
-        build: function () { return '<h2>报告生成结果（AI草稿）</h2>' + REPORT_TEXT; }
+        name: '报告草稿-第' + reportVersion + '版（AI生成）.doc',
+        build: function () { return '<h2>报告草稿（第 ' + reportVersion + ' 版 · AI生成，请人工核实）</h2>' + html; }
       }
     });
     addAgent({
-      text: '草稿已生成 ✅ 数值替换策略：原文逐字保留，仅将指标数值替换为接口最新值。可继续演示或开启新对话。',
-      chips: [
-        // { label: '再来一次', act: startReportDemo },
-        // { label: '⟳ 开启新对话', act: newChat }
-      ]
+      text: '第 ' + reportVersion + ' 版草稿已生成（旧版本保留在会话中）。你可以继续补充素材或要求，我会正常回答；' +
+        '再次表达“开始生成报告”的意图，我会开启新一轮确认（只含新增项）并生成新版本草稿。'
     });
+  }
+
+  /* ---- 报告模式输入路由：正常对话 / 语义触发；确认卡挂起期间只正常回答（门禁 mock）。
+     语义判定只作用于文字内容：附件-only（无文字）一律走正常对话轮，不触发工作流 ---- */
+  function routeReport(text, files) {
+    var added = 0;
+    var names = [];
+    files.forEach(function (f) {
+      addPoolItem('attach', f.name, '附件 · ' + fmtSize(f.size));
+      names.push('《' + f.name + '》');
+      added++;
+    });
+    if (reportFlow) {                       /* 非终态工作流进行中：正常回答，不新建工作流 */
+      reportChatReply(text, added, names);
+      return;
+    }
+    if (text && isReportIntent(text)) {
+      startReportWorkflow(text);
+      return;
+    }
+    reportChatReply(text, added, names);
   }
 
   /* ---------- 指标信息采集表 Agent（流程：上传 Word 模板 → 可选映射表/提示词 → 提取 →
@@ -1821,7 +2606,7 @@
       card.appendChild(more);
     }
     var foot = el('div', 'ecw-mfoot');
-    foot.appendChild(el('span', 'ecw-mfhint', '完整表格内：指标名下拉/手输 · 人工数值不会被覆盖 · 未匹配行可只填数值'));
+    // foot.appendChild(el('span', 'ecw-mfhint', '完整表格内：指标名下拉/手输 · 人工数值不会被覆盖 · 未匹配行可只填数值'));
     var bOpen = el('button', 'ecw-btn', '查看/编辑完整表格');
     bOpen.onclick = openFullTable;
     foot.appendChild(bOpen);
@@ -1985,6 +2770,7 @@
       bar.appendChild(chip);
     });
     bar.style.display = pendingFiles.length ? 'flex' : 'none';
+    autoGrow();   /* 附件增删即时刷新发送按钮可用态（仅附件可发送，全局规则 6.2.4） */
   }
 
   function stageFiles(fileList) {            /* 选择文件 → 即时校验 → 暂存附件条（不路由不上传） */
@@ -2016,7 +2802,7 @@
       if (files.length) dispatchCollectFiles(files);
       if (text) routeCollect(text);
     } else if (state.mode === 'report') {
-      startReportDemo();                     /* 任意输入（含附件）→ 固定演示 */
+      routeReport(text, files);              /* 正常对话＋语义触发（REQ-03 v1） */
     } else {
       if (files.length) extractDemo();
       else routeChat(text);
@@ -2099,23 +2885,23 @@
   var KB_SEED = {
     name: '全部文件', folders: [
       { name: '上交所定量指标信息采集表', folders: [], files: [
-        { name: '2026年FII可持续发展报告-定量指标采集表模板.docx' },
-        { name: '指标映射表-2025确认版.xlsx' }
+        { name: '2026年FII可持续发展报告-定量指标采集表模板.docx', ftype: '参考文档' },
+        { name: '指标映射表-2025确认版.xlsx', ftype: '参考文档' }
       ] },
       { name: '报告撰写素材', folders: [
         { name: '提示词', folders: [], files: [
-          { name: '报告撰写提示词-环境章节（E）.docx' },
-          { name: '报告撰写提示词-社会章节（S）.docx' },
-          { name: '报告撰写提示词-治理章节（G）.docx' }
+          { name: '报告撰写提示词-环境章节（E）.docx', ftype: '提示词文档' },
+          { name: '报告撰写提示词-社会章节（S）.docx', ftype: '提示词文档' },
+          { name: '报告撰写提示词-治理章节（G）.docx', ftype: '提示词文档' }
         ] }
-      ], files: [{ name: '2024年可持续发展报告（终版）.pdf' }] },
+      ], files: [{ name: '2024年可持续发展报告（终版）.pdf', ftype: '参考文档' }] },
       { name: 'ESG评级回应案例', folders: [], files: [
-        { name: 'MSCI评级回应案例-劳工管理.docx' },
-        { name: 'MSCI评级回应案例-碳排放.docx' }
+        { name: 'MSCI评级回应案例-劳工管理.docx', ftype: '参考文档' },
+        { name: 'MSCI评级回应案例-碳排放.docx', ftype: '参考文档' }
       ] },
       { name: '指标附件-员工管理', folders: [], files: [
-        { name: '2024员工统计表.xlsx' },
-        { name: '员工管理聘用与待遇政策.docx' }
+        { name: '2024员工统计表.xlsx', ftype: '参考文档' },
+        { name: '员工管理聘用与待遇政策.docx', ftype: '参考文档' }
       ] }
     ], files: []
   };
@@ -2137,16 +2923,24 @@
     (node.folders || []).forEach(function (f) { n += countOf(f); });
     return n;
   }
+  /* 文件类型（REQ-03 v1 FP-F）：上传时必选、已透传契约；弹窗文件行显示类型标识。
+     判定优先级：ftype 字段（kb-widget 新上传/本文件种子已带）→ tag → 所在目录名（兜底旧 localStorage） */
+  function kbTypeOf(f, pkey) {
+    if (f.ftype) return f.ftype;
+    if (f.tag === '提示词文档') return '提示词文档';
+    if (pkey && /提示词/.test(pkey)) return '提示词文档';
+    return '参考文档';
+  }
   /* 文件树选择弹窗；onOk(files) — files: [{name, path}] */
   function openKbPicker(onOk) {
     var tree = loadKbTree();
     var sections = [
-      { name: '知识库文件', node: tree, open: true },
+      { name: '知识库文件', node: tree, open: true, showType: true },
       { name: '信息采集指标映射表', node: { folders: [], files: [
         { name: '全局指标映射总表', tag: '系统维护' },
         { name: '指标映射表-2025确认版.xlsx', tag: '采集表模板' },
         { name: '指标映射表-2026FII草稿.xlsx', tag: '采集表模板' }
-      ] }, open: true }
+      ] }, open: true, showType: false }
     ];
     var sel = {};   /* key → {name, path} */
     var selCount = 0;
@@ -2171,7 +2965,7 @@
         : '文件夹层级与「知识库」页面一致，可多选文件';
       hint.classList.toggle('warn', false);
     }
-    function renderNode(container, node, depth, pkey) {
+    function renderNode(container, node, depth, pkey, showType) {
       (node.folders || []).forEach(function (f) {
         var key = pkey + '/' + f.name;
         var isOpen = depth === 0;
@@ -2187,7 +2981,7 @@
           folder.querySelector('.ecw-karrow').classList.toggle('open', isOpen);
           kids.classList.toggle('open', isOpen);
         };
-        renderNode(kids, f, depth + 1, key);
+        renderNode(kids, f, depth + 1, key, showType);
         wrap.appendChild(folder); wrap.appendChild(kids);
         container.appendChild(wrap);
       });
@@ -2195,8 +2989,13 @@
         var key = pkey + '/' + f.name;
         var row = el('div', 'ecw-kfile');
         row.style.paddingLeft = (8 + depth * 16) + 'px';
+        /* 类型标识（REQ-03 v1 FP-F）：参考文档 / 提示词文档，纯文字 badge */
+        var typeTag = showType
+          ? '<span class="' + (kbTypeOf(f, pkey) === '提示词文档' ? 'ecw-kbtag-prompt' : 'ecw-kbtag-ref') + '">' +
+            escapeHtml(kbTypeOf(f, pkey)) + '</span>'
+          : '';
         row.innerHTML = '<span class="ecw-kchk"></span><span>' + kbIcon(f.name) + '</span>' +
-          '<span class="ecw-kfnm" title="' + escapeHtml(f.name) + '">' + escapeHtml(f.name) + '</span>';
+          '<span class="ecw-kfnm" title="' + escapeHtml(f.name) + '">' + escapeHtml(f.name) + '</span>' + typeTag;
         row.onclick = function () {
           if (sel[key]) { delete sel[key]; selCount--; row.classList.remove('on'); }
           else { sel[key] = { name: f.name, path: pkey }; selCount++; row.classList.add('on'); }
@@ -2207,7 +3006,7 @@
     }
     sections.forEach(function (s) {
       body.appendChild(el('div', 'ecw-ksec', '🗂 ' + escapeHtml(s.name) + '<span class="ecw-kcnt">共 ' + countOf(s.node) + ' 个文件</span>'));
-      renderNode(body, s.node, 0, s.name);
+      renderNode(body, s.node, 0, s.name, s.showType !== false);
     });
 
     function close() { mask.classList.remove('open'); mask.remove(); }
@@ -2231,7 +3030,11 @@
     openKbPicker(function (files) {
       var names = files.map(function (f) { return '《' + f.name + '》'; }).join('、');
       addUser('🗂 已引用知识库文件：' + names);
-      if (state.mode === 'report') startReportDemo();
+      if (state.mode === 'report') {
+        /* REQ-03 v1：知识库引用累积进上下文（素材池）＋正常对话回答（不再直接建工作流） */
+        files.forEach(function (f) { addPoolItem('kb', f.name, '知识库 · ' + (f.path || f.name)); });
+        reportChatReply('', files.length, files.map(function (f) { return '《' + f.name + '》'; }));
+      }
       else if (state.mode === 'collect') awaitPrompt();
       else {
         addAgent({
@@ -2948,6 +3751,16 @@
     if (stale(s)) return;
     endSession(s);
     addDataResultCard(items, libName);
+    /* 报告模式联动（REQ-03 v1 FP-B）：所选指标同时登记进报告上下文·素材池（来源＝数据选择）；
+       发起报告生成时将作为已匹配指标行直接注入确认卡 */
+    if (state.mode === 'report') {
+      items.forEach(function (it) {
+        addPoolItem('data', it.ind.name,
+          '数据选择 · ' + (it.year || DS_CUR_YEAR) + '年 · ' + dimSum(it.dim),
+          { ind: it.ind, year: it.year, dim: it.dim });
+      });
+      addSystem('已登记进报告上下文（来源：数据选择）；发起报告生成时将直接作为已匹配指标行');
+    }
     addAgent({
       text: '已按本次提交**一次性**返回 ' + items.length + ' 项指标共 ' + totalRows +
         ' 行查询结果（单一表格，可点标题行 **⛶ 全屏** 查看整表）✅\n\n年份与维度为**指标级配置**，维度支持' +
@@ -3037,6 +3850,7 @@
     // var footText = '行与选择一一对应：每个所选维度对象对应一条数据、无数值加总（未选维度＝1 个默认对象 FII）' +
     //   '· 维度对象列＝「维度名 · 对象名」单列（9/7 定稿）· 年份/维度按各指标各自配置 · 指标无数据时保留该行、数值列以"—"占位（9/7 定稿）';
     // card.appendChild(el('div', 'ecw-tblfoot', md(footText)));
+    var footText = '';                    /* 表脚文案隐藏（界面精简）；保留空串供全屏入参（避免悬空引用） */
     /* ⛶ 全屏（FP-8 / 流程 D）：克隆卡片内表格本身——多指标提交时全屏看到的同样是整张表 */
     var fsBtn = el('button', 'ecw-dsfsbtn', '⛶ 全屏');
     fsBtn.type = 'button';
@@ -3088,7 +3902,8 @@
   function autoGrow() {
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight, 96) + 'px';
-    sendBtn.disabled = !ta.value.trim() || busy;
+    /* 全局规则 6.2.4：仅附件（无文字）也可发送——有待发附件时发送按钮保持可用 */
+    sendBtn.disabled = (!ta.value.trim() && !pendingFiles.length) || busy;
   }
   ta.addEventListener('input', autoGrow);
   ta.addEventListener('keydown', function (e) {
