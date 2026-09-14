@@ -328,28 +328,9 @@
     ' transition:all .15s;font-weight:500}',
     '#ecw-root .ecw-agentbtn:hover{border-color:#3f7afa;color:#3f7afa;background:#f5f8ff}',
     '#ecw-root .ecw-agentbtn.ecw-on{background:#3f7afa;border-color:#3f7afa;color:#fff;',
-    '#ecw-root .ecw-yearmenu{position:absolute;z-index:60;width:240px;background:#fff;border:1px solid #e3e8f0;border-radius:10px;',
-    ' box-shadow:0 12px 32px rgba(15,23,42,.16),0 2px 8px rgba(15,23,42,.06);font-size:12px;overflow:hidden;',
-    ' opacity:0;transform:translateY(-6px) scale(.98);transform-origin:top left;transition:opacity .16s ease,transform .16s ease}',
-    '#ecw-root .ecw-yearmenu.open{opacity:1;transform:none}',
-    '#ecw-root .ecw-ymhead{position:relative;padding:11px 14px 9px;font-size:13px;font-weight:600;color:#1f2329;',
-    ' border-bottom:1px solid #f0f2f7}',
-    '#ecw-root .ecw-ymclose{position:absolute;right:10px;top:9px;width:20px;height:20px;line-height:20px;text-align:center;',
-    ' color:#98a0ad;cursor:pointer;border-radius:4px}',
-    '#ecw-root .ecw-ymclose:hover{color:#515a6b;background:#f2f4f8}',
-    '#ecw-root .ecw-ymbody{max-height:238px;overflow-y:auto;padding:6px}',
-    '#ecw-root .ecw-ymbody::-webkit-scrollbar{width:6px}',
-    '#ecw-root .ecw-ymbody::-webkit-scrollbar-thumb{background:#dfe3ec;border-radius:3px}',
-    '#ecw-root .ecw-ymopt{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:7px;cursor:pointer;transition:background .12s}',
-    '#ecw-root .ecw-ymopt:hover{background:#f5f8ff}',
-    '#ecw-root .ecw-ymopt.on{background:#eef4ff}',
-    '#ecw-root .ecw-ymy{font-size:13px;font-weight:600;color:#1f2329}',
-    '#ecw-root .ecw-ymopt.on .ecw-ymy{color:#2f5fd9}',
-    '#ecw-root .ecw-ymtag{font-style:normal;font-size:10px;font-weight:500;color:#0e9f6e;background:#e6f7f1;border-radius:3px;padding:1px 6px;margin-left:7px;vertical-align:1px}',
-    '#ecw-root .ecw-ymtag2{font-style:normal;font-size:10px;font-weight:500;color:#98a0ad;background:#f0f1f5;border-radius:3px;padding:1px 6px;margin-left:7px;vertical-align:1px}',
-    '#ecw-root .ecw-ymchk{color:#2f5fd9;font-weight:700;font-size:13px;opacity:0;transition:opacity .12s}',
-    '#ecw-root .ecw-ymopt.on .ecw-ymchk{opacity:1}',
-    '#ecw-root .ecw-ymfoot{padding:8px 14px;font-size:11px;color:#98a0ad;border-top:1px solid #f0f2f7;background:#fafbfe}',
+    '#ecw-root .ecw-yearsel{height:34px;border:1px solid #dfe3ec;background:#fafbfe;border-radius:4px;',
+    ' font-size:12.5px;font-family:inherit;color:#1f2329;padding:0 6px;cursor:pointer;outline:none;max-width:150px}',
+    '#ecw-root .ecw-yearsel:focus{border-color:#3f7afa;box-shadow:0 0 0 2px rgba(63,122,250,.12)}',
     ' box-shadow:0 3px 8px rgba(63,122,250,.35)}',
     /* 统一输入框：📎/🗂 小按钮 + 无边框输入 + 发送，整体对齐在一个框内 */
     '#ecw-root .ecw-inputbox{display:flex;align-items:flex-end;gap:6px;border:1px solid #dfe3ee;border-radius:10px;',
@@ -655,7 +636,7 @@
     // 正式口径：仅管理员可见（全局规则 7，与上两个功能按钮一致）——
     // 原型 mock 无角色体系，故与既有按钮一致无条件显示；无 data-mode（不切换对话模式）。
     '        <button class="ecw-agentbtn" id="ecw-databtn">数据选择</button>' +
-    '        <button class="ecw-agentbtn" id="ecw-yearbtn" title="选择信息采集表取数年份" style="display:none">📅 年份：2025</button>' +
+    '        <select class="ecw-yearsel" id="ecw-yearsel" title="选择信息采集表取数年份" style="display:none"></select>' +
     '      </div>' +
     '      <div class="ecw-attachbar" id="ecw-attachbar" style="display:none"></div>' +
     '      <div class="ecw-inputbox">' +
@@ -1083,7 +1064,7 @@
     root.querySelectorAll('.ecw-agentbtn').forEach(function (b) {
       b.classList.toggle('ecw-on', b.getAttribute('data-mode') === mode);
     });
-    var yb = $('ecw-yearbtn');                     /* 年份按钮：仅采集表模式显示（排在【数据选择】之后） */
+    var yb = $('ecw-yearsel');                   /* 年份下拉：仅采集表模式显示（排在【数据选择】之后） */
     if (yb) yb.style.display = mode === 'collect' ? '' : 'none';
     if (!silent) {
       if (mode === 'report') { addSystem('已切换至「报告生成」Agent'); reportIntro(); }
@@ -1764,9 +1745,8 @@
     /* 发起时年份强校验：模板封面年度与所选年份不一致 → 阻止，提示换年份或重传对应年份模板 */
     if (collectYear !== DEMO_COVER_YEAR) {
       addAgent({
-        text: '⚠️ **模板年份（' + DEMO_COVER_YEAR + '）与所选年份（' + collectYear + '）不一致**，无法发起提取。请点击输入区【📅 年份】更换年份，或重新上传对应年份的模板。',
+        text: '⚠️ **模板年份（' + DEMO_COVER_YEAR + '）与所选年份（' + collectYear + '）不一致**，无法发起提取。请将输入区上方的【📅 年份】下拉改为 " + DEMO_COVER_YEAR + "，或重新上传对应年份的模板。',
         chips: [
-          { label: '📅 更换年份', act: function () { openYearMenu(); } },
           { label: '↻ 重新提取', act: function () { startExtract(''); } }
         ]
       });
@@ -2680,48 +2660,31 @@
 
   /* 【数据选择】按钮（输入区上方按钮区，排在【指标信息采集表】之后）：
    * 点击打开选择弹窗，提交后由 AI 一次性返回表格结果 */
-  /* 【📅 年份】按钮（仅采集表模式显示）：选项＝平台全部收集年份（由新到旧），默认最新；对下一次提取生效 */
-  function openYearMenu() {
-    var oldMenu = root.querySelector('.ecw-yearmenu');
-    if (oldMenu) { oldMenu.remove(); return; }
-    var menu = el('div', 'ecw-yearmenu');
-    menu.innerHTML =
-      '<div class="ecw-ymhead">选择取数年份<span class="ecw-ymclose" title="关闭">✕</span></div>' +
-      '<div class="ecw-ymbody"></div>' +
-      '<div class="ecw-ymfoot">上期＝所选年份前一年 · 选择对下一次提取生效</div>';
-    var body = menu.querySelector('.ecw-ymbody');
+  /* 【📅 年份】原生 select（仅采集表模式显示）：下拉由浏览器渲染，不存在遮挡/裁切/错位；
+     选项＝平台全部收集年份（由新到旧，第一项最新），默认最新；对下一次提取生效 */
+  (function initYearSelect() {
+    var sel = $('ecw-yearsel');
+    if (!sel) return;
+    sel.innerHTML = '';
     DEMO_COLLECT_YEARS.forEach(function (y, yi) {
-      var tag = yi === 0 ? '<i class="ecw-ymtag">最新</i>'
-        : DEMO_EMPTY_YEARS.indexOf(y) !== -1 ? '<i class="ecw-ymtag2">暂无数据</i>' : '';
-      var it = el('div', 'ecw-ymopt' + (collectYear === y ? ' on' : ''),
-        '<span class="ecw-ymy">' + y + tag + '</span><span class="ecw-ymchk">✓</span>');
-      it.onclick = function (ev) {
-        ev.stopPropagation();
-        collectYear = y;
-        $('ecw-yearbtn').textContent = '📅 年份：' + y;
-        menu.remove();
-        if (DEMO_EMPTY_YEARS.indexOf(y) !== -1) {
-          addSystem('📅 所选年份（' + y + '）暂无填报数据：提取后数值列将为空、可人工填写。年份对下一次提取生效。');
-        } else if (y !== DEMO_COVER_YEAR) {
-          addSystem('⚠️ 所选年份（' + y + '）与模板封面年度（' + DEMO_COVER_YEAR + '）不一致：发送提取时将被校验拦截，请更换年份或重新上传对应年份模板。');
-        } else {
-          addSystem('📅 取数年份已设为 ' + y + ' 年，对下一次提取生效。');
-        }
-      };
-      body.appendChild(it);
+      var o = el('option', null, '📅 ' + y + ' 年' +
+        (yi === 0 ? '（最新）' : DEMO_EMPTY_YEARS.indexOf(y) !== -1 ? '（暂无数据）' : ''));
+      o.value = String(y);
+      sel.appendChild(o);
     });
-    menu.querySelector('.ecw-ymclose').onclick = function (ev) { ev.stopPropagation(); menu.remove(); };
-    root.appendChild(menu);
-    var rb = $('ecw-yearbtn').getBoundingClientRect();
-    var pr = root.getBoundingClientRect();
-    menu.style.left = Math.max(8, Math.min(rb.left - pr.left - 170, pr.width - 252)) + 'px';
-    menu.style.top = (rb.bottom - pr.top + 8) + 'px';
-    requestAnimationFrame(function () { menu.classList.add('open'); });
-    setTimeout(function () {
-      document.addEventListener('click', function closeYm() { menu.remove(); }, { once: true });
-    }, 0);
-  }
-  $('ecw-yearbtn').onclick = function (e) { e.stopPropagation(); openYearMenu(); };
+    sel.value = String(collectYear);
+    sel.onchange = function () {
+      var y = parseInt(sel.value, 10);
+      collectYear = y;
+      if (DEMO_EMPTY_YEARS.indexOf(y) !== -1) {
+        addSystem('📅 所选年份（' + y + '）暂无填报数据：提取后数值列将为空、可人工填写。年份对下一次提取生效。');
+      } else if (y !== DEMO_COVER_YEAR) {
+        addSystem('⚠️ 所选年份（' + y + '）与模板封面年度（' + DEMO_COVER_YEAR + '）不一致：发送提取时将被校验拦截，请更换年份或重新上传对应年份模板。');
+      } else {
+        addSystem('📅 取数年份已设为 ' + y + ' 年，对下一次提取生效。');
+      }
+    };
+  })();
 
   $('ecw-databtn').onclick = function () {
     if (busy) return;
